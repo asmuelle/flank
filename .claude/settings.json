@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just:*)",
+      "Bash(pnpm:*)",
+      "Bash(node:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx playwright:*)",
+      "Bash(docker compose:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.css|*.md) if [ -f \"$CLAUDE_PROJECT_DIR/package.json\" ]; then cd \"$CLAUDE_PROJECT_DIR\" && pnpm exec prettier --write \"$f\" >/dev/null 2>&1; fi ;; esac; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx) if [ -f \"$CLAUDE_PROJECT_DIR/package.json\" ]; then cd \"$CLAUDE_PROJECT_DIR\" && pnpm exec eslint --fix \"$f\" >/dev/null 2>&1; fi ;; esac; exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \"$CLAUDE_PROJECT_DIR/package.json\" ]; then cd \"$CLAUDE_PROJECT_DIR\" && pnpm exec tsc --noEmit --pretty false 2>&1 | tail -20; fi; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

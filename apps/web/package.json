@@ -1,0 +1,28 @@
+{
+  "name": "@flank/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only intelligence brief: change timeline rendered from the fixture pipeline output.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "e2e": "node -e \"console.error('Playwright e2e suite lands with M2; not part of just ci in M1.'); process.exit(1)\""
+  },
+  "dependencies": {
+    "@flank/core": "workspace:*",
+    "@flank/pipeline": "workspace:*",
+    "next": "^15.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@flank/pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pipeline logic: source adapters, hash-gated ingest, mock triage, in-memory store, fixture scenario. Pure functions over content strings; I/O stays at the edges.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flank/core": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

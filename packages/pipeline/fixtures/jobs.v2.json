@@ -1,0 +1,26 @@
+{
+  "jobs": [
+    {
+      "id": 4012001,
+      "title": "Senior Backend Engineer",
+      "updated_at": "2026-05-20T10:00:00-04:00",
+      "location": { "name": "Remote — EU" },
+      "absolute_url": "https://boards.greenhouse.io/periscopelabs/jobs/4012001"
+    },
+    {
+      "id": 4012002,
+      "title": "Product Designer",
+      "updated_at": "2026-05-22T09:30:00-04:00",
+      "location": { "name": "Berlin" },
+      "absolute_url": "https://boards.greenhouse.io/periscopelabs/jobs/4012002"
+    },
+    {
+      "id": 4012003,
+      "title": "VP of Sales, EMEA",
+      "updated_at": "2026-06-07T16:45:00-04:00",
+      "location": { "name": "London" },
+      "absolute_url": "https://boards.greenhouse.io/periscopelabs/jobs/4012003"
+    }
+  ],
+  "meta": { "total": 3 }
+}

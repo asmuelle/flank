@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+.next/
+apps/web/next-env.d.ts
+dist/
+build/
+out/
+*.tsbuildinfo
+.turbo/
+
+# Tests
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Drizzle local artifacts
+drizzle/meta/_journal.json.bak
+
+# Inngest dev
+.inngest/
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json

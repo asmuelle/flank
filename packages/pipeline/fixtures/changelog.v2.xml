@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Periscope Labs — Changelog</title>
+    <link>https://periscope.example/changelog</link>
+    <description>Product updates from Periscope Labs</description>
+    <item>
+      <title>Introducing Battlecards AI</title>
+      <pubDate>Mon, 08 Jun 2026 08:00:00 GMT</pubDate>
+      <description><![CDATA[Auto-generated battlecards are now available on every plan — Periscope drafts win/loss talking points from your tracked rivals.]]></description>
+    </item>
+    <item>
+      <title>Faster dashboard loads</title>
+      <pubDate>Tue, 19 May 2026 09:00:00 GMT</pubDate>
+      <description>Dashboards now render up to 40% faster on large workspaces.</description>
+    </item>
+    <item>
+      <title>CSV export for reports</title>
+      <pubDate>Tue, 05 May 2026 09:00:00 GMT</pubDate>
+      <description>Export any report to CSV from the share menu.</description>
+    </item>
+  </channel>
+</rss>

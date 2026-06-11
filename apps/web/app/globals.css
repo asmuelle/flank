@@ -1,0 +1,321 @@
+/* Flank — intelligence-briefing editorial (DESIGN.md visual direction).
+   Paper surface, near-black ink, one radar-blue accent; delta semantics
+   (threat / shift / opportunity) appear only on deltas, never decoratively. */
+
+:root {
+  --color-paper: oklch(97% 0.005 90);
+  --color-ink: oklch(20% 0.01 80);
+  --color-ink-soft: oklch(42% 0.012 80);
+  --color-rule: oklch(86% 0.008 90);
+  --color-accent: oklch(52% 0.13 250);
+  --color-threat: oklch(48% 0.17 27);
+  --color-shift: oklch(60% 0.13 75);
+  --color-opportunity: oklch(52% 0.12 150);
+  --color-quote-bg: oklch(99% 0.003 90);
+
+  --font-display: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-ui: Inter, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  --text-hero: clamp(2.5rem, 1.6rem + 3.5vw, 4.5rem);
+  --text-h2: clamp(1.4rem, 1.2rem + 0.8vw, 1.9rem);
+  --text-h3: clamp(1.1rem, 1rem + 0.5vw, 1.35rem);
+  --text-meta: 0.78rem;
+
+  --space-section: clamp(3rem, 2rem + 4vw, 6rem);
+  --measure: 46rem;
+
+  --duration-fast: 150ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: 1.55;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.01em;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: text-decoration-thickness var(--duration-fast) var(--ease-out);
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.brief {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+/* Masthead — print-brief gravitas, hierarchy by scale not boxes */
+.masthead {
+  padding: var(--space-section) 0 calc(var(--space-section) * 0.5);
+  border-bottom: 3px double var(--color-ink);
+}
+
+.masthead-kicker {
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+  margin: 0 0 0.75rem;
+}
+
+.masthead h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 600;
+  line-height: 1.05;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.015em;
+}
+
+.masthead-sub {
+  color: var(--color-ink-soft);
+  margin: 0;
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(2rem, 4vw, 4rem);
+  padding: calc(var(--space-section) * 0.6) 0 var(--space-section);
+}
+
+@media (min-width: 64rem) {
+  main {
+    grid-template-columns: minmax(0, var(--measure)) 16rem;
+    align-items: start;
+  }
+}
+
+.timeline-section h2,
+.receipt h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.section-note {
+  color: var(--color-ink-soft);
+  max-width: var(--measure);
+  margin: 0 0 2.25rem;
+}
+
+/* Timeline — dense vertical with a newspaper margin rule */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--color-rule);
+}
+
+.timeline > li {
+  position: relative;
+  padding: 0 0 2.75rem 1.75rem;
+}
+
+.timeline > li::before {
+  content: '';
+  position: absolute;
+  left: -0.3125rem;
+  top: 0.55rem;
+  width: 0.5625rem;
+  height: 0.5625rem;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+
+.delta[data-signal='threat'] {
+  --signal: var(--color-threat);
+}
+
+.delta[data-signal='shift'] {
+  --signal: var(--color-shift);
+}
+
+.delta[data-signal='opportunity'] {
+  --signal: var(--color-opportunity);
+}
+
+.delta[data-signal='quiet'] {
+  --signal: var(--color-ink-soft);
+}
+
+.timeline > li:has(.delta[data-signal='threat'])::before {
+  background: var(--color-threat);
+}
+
+.timeline > li:has(.delta[data-signal='opportunity'])::before {
+  background: var(--color-opportunity);
+}
+
+.timeline > li:has(.delta[data-signal='shift'])::before {
+  background: var(--color-shift);
+}
+
+.delta-kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0 0 0.25rem;
+}
+
+.delta-class {
+  font-size: var(--text-meta);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+}
+
+.delta-materiality {
+  color: var(--signal);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+}
+
+.delta-head h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 0.4rem;
+  max-width: var(--measure);
+}
+
+.delta-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: var(--color-ink-soft);
+  margin: 0 0 1rem;
+}
+
+.delta-state {
+  text-transform: uppercase;
+}
+
+.delta-hold {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  color: var(--color-threat);
+}
+
+/* Quote cards — evidence visually distinct from synthesis */
+.citation {
+  margin: 0 0 1rem;
+  background: var(--color-quote-bg);
+  border-left: 3px solid var(--signal, var(--color-rule));
+  padding: 0.9rem 1.1rem;
+}
+
+.citation blockquote {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.provenance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-ink-soft);
+  word-break: break-all;
+}
+
+.provenance a {
+  color: var(--color-ink-soft);
+}
+
+.provenance-status[data-verified='true'] {
+  color: var(--color-opportunity);
+  font-weight: 700;
+}
+
+.provenance-status[data-verified='false'] {
+  color: var(--color-threat);
+  font-weight: 700;
+}
+
+/* Coverage receipt — the silence ledger */
+.receipt {
+  border-top: 3px double var(--color-ink);
+  padding-top: 1rem;
+}
+
+.receipt dl {
+  margin: 0 0 1rem;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.receipt-row dt {
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+}
+
+.receipt-row dd {
+  margin: 0;
+}
+
+.receipt-note {
+  color: var(--color-ink-soft);
+  margin: 0;
+}
+
+.colophon {
+  border-top: 1px solid var(--color-rule);
+  padding: 1.25rem 0 2.5rem;
+  color: var(--color-ink-soft);
+}
+
+.colophon p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

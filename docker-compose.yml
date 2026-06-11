@@ -1,0 +1,22 @@
+# Local Postgres 16 + pgvector for Drizzle migrations and (M2+) integration tests.
+# Started via `just db-up`. M1 unit tests never require this container.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: flank-postgres
+    environment:
+      POSTGRES_USER: flank
+      POSTGRES_PASSWORD: flank
+      POSTGRES_DB: flank
+    ports:
+      - '5432:5432'
+    volumes:
+      - flank-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U flank']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  flank-pgdata:
