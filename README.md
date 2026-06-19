@@ -2,18 +2,7 @@
 
 > The living competitor radar for B2B SaaS: always-on agents maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond — at 1/50th to 1/100th of a Klue contract.
 
-**Category:** LLM wiki / auto-research (living documents + delta alerts, à la Karpathy) · **Status:** 🟡 Tier 2 — strong economics, must outrun ChatGPT/Perplexity feature-shipping
-
-## Scorecard
-
-| Metric | Score |
-|---|---|
-| Rank (of 12 finalists) | #5 |
-| Combined score | 2.6 |
-| Monetization potential (1-10) | 7 |
-| Feasibility (1-10) | 6 |
-| Defensible vs platform features | No |
-| Skeptic verdict | weakened |
+**Category:** LLM wiki / auto-research (living documents + delta alerts, à la Karpathy) 
 
 ## Concept
 
