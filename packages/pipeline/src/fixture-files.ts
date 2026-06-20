@@ -8,7 +8,7 @@ export const loadFixtureBundleSync = (fixturesDir: string): FixtureBundle => {
     try {
       return readFileSync(join(fixturesDir, name), 'utf8');
     } catch (error) {
-      throw new Error(`could not read fixture ${name} in ${fixturesDir}: ${String(error)}`);
+      throw new Error(`could not read fixture ${name} in ${fixturesDir}`, { cause: error });
     }
   };
   return Object.freeze({
