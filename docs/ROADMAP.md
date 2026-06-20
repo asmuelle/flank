@@ -4,6 +4,36 @@
 > Source of truth for milestone order is still [DESIGN.md](../DESIGN.md); this file sequences the
 > concrete next steps and records the judgment calls behind the order.
 
+## Progress (updated 2026-06-20)
+
+The "Where we are" section below is the **original audit baseline**; this is the live status.
+`just ci` is green (145 unit tests) plus a DB-backed integration suite (28 tests against
+`pgvector:pg16`, run in CI).
+
+**Done**
+
+- ✅ **Persistence spine** — re-signed `FlankStore` contract (workspace-scoped writes, tx boundary,
+  pricing firewall via `assertDeltaTransition`); `postgres-js` + env-validated `createDb`;
+  `workspace_id` denormalized onto history tables; `DrizzleFlankStore` held to the shared
+  `runFlankStoreContract` suite; DB-tier append-only triggers + delta transition guard;
+  `UNIQUE(competitor,kind,version)` + `snapshot(source_id,fetched_at)` index. (Spine items #1–#4, #6, #7.)
+- ✅ **Secure fetch layer** — `Fetcher` port; SSRF-guarded `HttpFetcher` (blocked-range + redirect
+  re-validation), legal-source denylist (Invariant 4), `fetchAndIngest` wiring with real `httpStatus`.
+  (Fetch track #1–#3.)
+- ✅ **Pricing-confirmation re-fetch** — `confirmPricingDelta` closes Invariant 3 end-to-end
+  (reproduce → `confirmed` with snapshot; flap → `dismissed`); `composeAlerts` now alerts confirmed
+  pricing. (Fetch track #5.)
+- ✅ **Cross-cutting** — coverage gate (global ≥ 80 + strict floors on citation/diff/net-policy);
+  CI migration-apply + contract suite against the pgvector service.
+
+**Deferred (intentional)** — RLS (#5 of the spine; post-first-customer), Firecrawl/Zyte + S3 (#6),
+Lever/Ashby + source discovery (#7).
+
+**Next** — **Inngest cron (fetch track #4)**: fan out due-by-cadence sources → `fetchAndIngest`,
+drive pending pricing deltas → `confirmPricingDelta`, track source health (`lastFetchedAt`,
+`consecutive_failures`). Open decision: serve the Inngest functions from a Next.js API route
+(co-deployed) vs a standalone worker. After that: **Auth & tenancy origin**, then **M2**.
+
 ## Where we are (honest read)
 
 The pure-TS domain core (`packages/core`) is genuinely strong: entities, content hashing,
