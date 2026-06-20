@@ -23,7 +23,7 @@
     "eval:triage": "tsx scripts/eval-triage.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.65.0",
+    "@anthropic-ai/sdk": "^0.105.0",
     "@flank/core": "workspace:*",
     "@flank/pipeline": "workspace:*"
   },

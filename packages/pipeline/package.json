@@ -14,11 +14,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.65.0",
+    "@anthropic-ai/sdk": "^0.105.0",
     "@flank/core": "workspace:*",
     "cron-parser": "^5.0.4",
-    "inngest": "^3.44.0",
-    "zod": "^3.25.0"
+    "inngest": "^4.7.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
