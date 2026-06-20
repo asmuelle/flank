@@ -1,4 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
+  "comment": "TS6 no longer auto-includes @types/node; declare it explicitly for the node:* + process APIs.",
+  "compilerOptions": {
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts", "drizzle.config.ts"]
 }

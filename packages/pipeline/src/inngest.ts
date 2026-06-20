@@ -30,8 +30,8 @@ export const createScheduledTickFunction = (
   config: ScheduledTickConfig = {},
 ) =>
   inngest.createFunction(
-    { id: 'scheduled-source-tick' },
-    { cron: config.cron ?? '*/15 * * * *' },
+    // inngest v4: the trigger moved into the options object as `triggers`.
+    { id: 'scheduled-source-tick', triggers: [{ cron: config.cron ?? '*/15 * * * *' }] },
     async () => {
       const { store, triage } = await buildRuntime();
       const deps = { store, triage, nextId: () => randomUUID() };
@@ -60,8 +60,7 @@ export const createNightlySynthesisFunction = (
   config: NightlySynthesisConfig = {},
 ) =>
   inngest.createFunction(
-    { id: 'nightly-synthesis' },
-    { cron: config.cron ?? '0 4 * * *' },
+    { id: 'nightly-synthesis', triggers: [{ cron: config.cron ?? '0 4 * * *' }] },
     async () => {
       const { store, client } = await buildRuntime();
       return runNightlySynthesis({ store, client, nextId: () => randomUUID() }, new Date());
@@ -91,8 +90,11 @@ export const createDeliverySweepFunction = (
   config: DeliverySweepConfig = {},
 ) =>
   inngest.createFunction(
-    { id: 'delivery-sweep', concurrency: { limit: 1 } },
-    { cron: config.cron ?? '*/5 * * * *' },
+    {
+      id: 'delivery-sweep',
+      concurrency: { limit: 1 },
+      triggers: [{ cron: config.cron ?? '*/5 * * * *' }],
+    },
     async () => {
       const { store, notifier } = await buildRuntime();
       return runDeliverySweep(
