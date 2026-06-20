@@ -21,6 +21,7 @@ const makeDelta = (overrides: Partial<Delta>): Delta => ({
   materiality: 2,
   rationale: 'Launch language detected in changed content.',
   state: 'published',
+  confirmedBySnapshotId: null,
   createdAt: CREATED_AT,
   ...overrides,
 });

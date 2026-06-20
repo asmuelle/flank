@@ -74,7 +74,7 @@ describe('ingestFetch', () => {
 
     expect(outcome.kind).toBe('skipped_blocked');
     expect(harness.triage.calls).toBe(0);
-    expect(await harness.store.latestSnapshot(source.id)).toBeNull();
+    expect(await harness.store.latestSnapshot(harness.workspace.id, source.id)).toBeNull();
     const runs = await harness.store.listCoverageRuns('ws-1');
     expect(runs).toHaveLength(1);
     expect(runs[0].fetchFailures).toBe(1);
@@ -108,7 +108,7 @@ describe('ingestFetch', () => {
 
     expect(outcome.kind).toBe('baseline');
     expect(harness.triage.calls).toBe(0);
-    expect(await harness.store.latestSnapshot(source.id)).not.toBeNull();
+    expect(await harness.store.latestSnapshot(harness.workspace.id, source.id)).not.toBeNull();
   });
 
   it('stops before any LLM call when the content hash is unchanged (Invariant 2)', async () => {

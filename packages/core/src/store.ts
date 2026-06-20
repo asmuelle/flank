@@ -6,6 +6,7 @@ import type {
   DeltaState,
   Snapshot,
   Source,
+  TriageClass,
   Workspace,
 } from './entities';
 
@@ -30,7 +31,23 @@ export class UnknownEntityError extends Error {
   }
 }
 
-/** Delta state machine: pending is the only mutable state (Invariant 3 firewall lives here). */
+/**
+ * Raised when a workspace-scoped operation references an entity owned by a different workspace
+ * (Invariant 8). Distinct from {@link UnknownEntityError} so a leak attempt is never silently
+ * indistinguishable from a typo, and so the contract test can assert fail-closed scoping.
+ */
+export class CrossTenantError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CrossTenantError';
+  }
+}
+
+/**
+ * Structural delta state machine: which states may follow which. The pricing-confirmation
+ * refinement (Invariant 3) is `triageClass`-dependent and therefore cannot live in this static
+ * table — see {@link assertDeltaTransition}.
+ */
 export const ALLOWED_DELTA_TRANSITIONS: Readonly<Record<DeltaState, readonly DeltaState[]>> =
   Object.freeze({
     pending: Object.freeze(['confirmed', 'dismissed', 'published'] as const),
@@ -39,28 +56,86 @@ export const ALLOWED_DELTA_TRANSITIONS: Readonly<Record<DeltaState, readonly Del
     published: Object.freeze([] as const),
   });
 
+/** The minimal delta shape a transition guard needs — every store has this much in hand. */
+export type DeltaTransitionInput = Pick<Delta, 'id' | 'state' | 'triageClass'>;
+
+const isPricingClass = (triageClass: TriageClass): boolean => triageClass === 'pricing_change';
+
 /**
- * Repository contract. History tables (snapshots, deltas, claims) are
- * append-only (Invariant 5): no update or delete operations exist on this
- * interface beyond the delta state machine and one-shot claim verification.
- * Every read is workspace-scoped (Invariant 8).
+ * Authorize a delta state transition. Enforces, in order:
+ *  - the structural state machine ({@link ALLOWED_DELTA_TRANSITIONS});
+ *  - Invariant 3: a `pricing_change` delta may never go `pending → published` directly — it must
+ *    pass through `confirmed` (the false-pricing-alert firewall);
+ *  - that any `→ confirmed` transition carries the reproducing snapshot id, because `confirmed`
+ *    *means* "a second snapshot reproduced this change".
+ *
+ * This is the single source of transition truth, shared by every {@link FlankStore} implementation
+ * and (later) mirrored by a DB `UPDATE` trigger, so the firewall cannot be bypassed by a new store.
+ */
+export const assertDeltaTransition = (
+  delta: DeltaTransitionInput,
+  to: DeltaState,
+  confirmedBySnapshotId?: string | null,
+): void => {
+  if (!ALLOWED_DELTA_TRANSITIONS[delta.state].includes(to)) {
+    throw new IllegalTransitionError(`delta ${delta.id}: ${delta.state} → ${to} is not allowed`);
+  }
+  if (isPricingClass(delta.triageClass) && delta.state === 'pending' && to === 'published') {
+    throw new IllegalTransitionError(
+      `delta ${delta.id}: pricing_change cannot go pending → published; confirmation required (Invariant 3)`,
+    );
+  }
+  if (
+    to === 'confirmed' &&
+    (confirmedBySnapshotId === undefined || confirmedBySnapshotId === null)
+  ) {
+    throw new IllegalTransitionError(
+      `delta ${delta.id}: → confirmed requires a confirmedBySnapshotId (Invariant 3 firewall)`,
+    );
+  }
+};
+
+/**
+ * Repository contract. History tables (snapshots, deltas, claims) are append-only (Invariant 5):
+ * no update or delete operations exist beyond the delta state machine and one-shot claim
+ * verification.
+ *
+ * Every write and single-entity lookup is **workspace-scoped** (Invariant 8): callers pass the
+ * acting `workspaceId` and the store fails closed ({@link CrossTenantError}) if the referenced
+ * entity belongs to another tenant — tenant isolation is a property of the contract, not of any one
+ * implementation. The write set of a single ingest pass is committed atomically via
+ * {@link FlankStore.withTransaction} so a mid-write failure can never leave an orphan snapshot or a
+ * delta with partial claims (which would violate Invariant 1).
  */
 export interface FlankStore {
   seedWorkspace(workspace: Workspace): Promise<Workspace>;
   seedCompetitor(competitor: Competitor): Promise<Competitor>;
   seedSource(source: Source): Promise<Source>;
 
-  insertSnapshot(snapshot: Snapshot): Promise<Snapshot>;
-  latestSnapshot(sourceId: string): Promise<Snapshot | null>;
+  insertSnapshot(workspaceId: string, snapshot: Snapshot): Promise<Snapshot>;
+  latestSnapshot(workspaceId: string, sourceId: string): Promise<Snapshot | null>;
 
-  insertDelta(delta: Delta): Promise<Delta>;
-  transitionDelta(deltaId: string, to: DeltaState): Promise<Delta>;
+  insertDelta(workspaceId: string, delta: Delta): Promise<Delta>;
+  transitionDelta(
+    workspaceId: string,
+    deltaId: string,
+    to: DeltaState,
+    confirmedBySnapshotId?: string | null,
+  ): Promise<Delta>;
 
-  insertClaim(claim: Claim): Promise<Claim>;
+  insertClaim(workspaceId: string, claim: Claim): Promise<Claim>;
 
   insertCoverageRun(run: CoverageRun): Promise<CoverageRun>;
 
   listDeltas(workspaceId: string): Promise<readonly Delta[]>;
   listClaimsForDelta(workspaceId: string, deltaId: string): Promise<readonly Claim[]>;
   listCoverageRuns(workspaceId: string): Promise<readonly CoverageRun[]>;
+
+  /**
+   * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}
+   * bound to the transaction; if `fn` throws, every write performed through that handle is rolled
+   * back. The in-memory store implements this by checkpoint/restore; the Drizzle store will map it
+   * to a real DB transaction.
+   */
+  withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T>;
 }

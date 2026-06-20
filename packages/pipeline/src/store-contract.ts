@@ -1,0 +1,310 @@
+import {
+  AppendOnlyViolationError,
+  CrossTenantError,
+  IllegalTransitionError,
+  UnknownEntityError,
+  type Claim,
+  type CoverageRun,
+  type Delta,
+  type FlankStore,
+  type Snapshot,
+} from '@flank/core';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+/**
+ * The canonical behavioural contract every {@link FlankStore} implementation must satisfy. It is a
+ * function of a store factory so the same suite runs against `MemoryFlankStore` today and against a
+ * `DrizzleFlankStore` later — the interface is frozen behind these assertions, so the DB store is a
+ * mechanical implementation of a tested spec rather than a fresh design.
+ *
+ * Covers: append-only history (Invariant 5), workspace-scoped writes AND reads (Invariant 8), the
+ * pricing-confirmation firewall (Invariant 3), and atomic {@link FlankStore.withTransaction}.
+ */
+const AT = new Date('2026-06-08T06:00:00Z');
+
+const WS_A = { id: 'ws-a', name: 'Tenant A', planTier: 'growth' } as const;
+const WS_B = { id: 'ws-b', name: 'Tenant B', planTier: 'starter' } as const;
+const COMP_A = {
+  id: 'comp-a',
+  workspaceId: 'ws-a',
+  name: 'Rival A',
+  primaryDomain: 'a.example',
+} as const;
+const COMP_B = {
+  id: 'comp-b',
+  workspaceId: 'ws-b',
+  name: 'Rival B',
+  primaryDomain: 'b.example',
+} as const;
+const SRC_A = {
+  id: 'src-a',
+  competitorId: 'comp-a',
+  type: 'pricing',
+  url: 'https://a.example/pricing',
+  adapter: 'html',
+  cadence: '0 6 * * *',
+  legalStatus: 'open',
+} as const;
+const SRC_B = {
+  id: 'src-b',
+  competitorId: 'comp-b',
+  type: 'pricing',
+  url: 'https://b.example/pricing',
+  adapter: 'html',
+  cadence: '0 6 * * *',
+  legalStatus: 'open',
+} as const;
+
+const snapshotOn = (sourceId: string, id: string, contentHash = `hash-${id}`): Snapshot => ({
+  id,
+  sourceId,
+  contentHash,
+  normalizedText: 'normalized text',
+  fetchedAt: AT,
+  httpStatus: 200,
+  vantage: null,
+});
+
+const deltaOn = (sourceId: string, id: string, overrides: Partial<Delta> = {}): Delta => ({
+  id,
+  sourceId,
+  fromSnapshotId: null,
+  toSnapshotId: `${id}-to`,
+  changedSpans: [],
+  triageClass: 'feature_launch',
+  materiality: 2,
+  rationale: 'reason',
+  state: 'pending',
+  confirmedBySnapshotId: null,
+  createdAt: AT,
+  ...overrides,
+});
+
+const claimOn = (deltaId: string, id: string, snapshotId: string): Claim => ({
+  id,
+  deltaId,
+  snapshotId,
+  quoteText: 'quote',
+  charStart: 0,
+  charEnd: 5,
+  sourceUrl: 'https://a.example/pricing',
+  capturedAt: AT,
+  verifiedAt: null,
+});
+
+const coverageOn = (workspaceId: string, id: string): CoverageRun => ({
+  id,
+  workspaceId,
+  period: '2026-06-08',
+  sourcesChecked: 1,
+  fetchFailures: 0,
+  deltasFound: 1,
+  materialDeltas: 1,
+  llmCalls: 1,
+  llmCostCents: 0,
+  createdAt: AT,
+});
+
+export const runFlankStoreContract = (label: string, makeStore: () => FlankStore): void => {
+  describe(`FlankStore contract: ${label}`, () => {
+    let store: FlankStore;
+
+    /** Insert a delta's referenced snapshot first, then the delta — FK-realistic for any backend. */
+    const seedDelta = async (
+      workspaceId: string,
+      sourceId: string,
+      deltaId: string,
+      overrides: Partial<Delta> = {},
+    ): Promise<Delta> => {
+      const snapshotId = `${deltaId}-snap`;
+      await store.insertSnapshot(workspaceId, snapshotOn(sourceId, snapshotId));
+      return store.insertDelta(
+        workspaceId,
+        deltaOn(sourceId, deltaId, { toSnapshotId: snapshotId, ...overrides }),
+      );
+    };
+
+    beforeEach(async () => {
+      store = makeStore();
+      await store.seedWorkspace(WS_A);
+      await store.seedCompetitor(COMP_A);
+      await store.seedSource(SRC_A);
+      await store.seedWorkspace(WS_B);
+      await store.seedCompetitor(COMP_B);
+      await store.seedSource(SRC_B);
+    });
+
+    describe('append-only history (Invariant 5)', () => {
+      it('rejects a duplicate snapshot id', async () => {
+        await store.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-1'));
+        await expect(
+          store.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-1')),
+        ).rejects.toBeInstanceOf(AppendOnlyViolationError);
+      });
+
+      it('rejects a duplicate delta id', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-1');
+        await expect(store.insertDelta(WS_A.id, deltaOn(SRC_A.id, 'd-1'))).rejects.toBeInstanceOf(
+          AppendOnlyViolationError,
+        );
+      });
+
+      it('rejects a duplicate claim id', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-1');
+        await store.insertClaim(WS_A.id, claimOn('d-1', 'c-1', 'd-1-snap'));
+        await expect(
+          store.insertClaim(WS_A.id, claimOn('d-1', 'c-1', 'd-1-snap')),
+        ).rejects.toBeInstanceOf(AppendOnlyViolationError);
+      });
+    });
+
+    describe('unknown parents fail explicitly', () => {
+      it('rejects a snapshot for an unknown source', async () => {
+        await expect(
+          store.insertSnapshot(WS_A.id, snapshotOn('nope', 'snap-x')),
+        ).rejects.toBeInstanceOf(UnknownEntityError);
+      });
+
+      it('rejects a delta for an unknown source', async () => {
+        await expect(store.insertDelta(WS_A.id, deltaOn('nope', 'd-x'))).rejects.toBeInstanceOf(
+          UnknownEntityError,
+        );
+      });
+
+      it('rejects a claim for an unknown delta', async () => {
+        await expect(
+          store.insertClaim(WS_A.id, claimOn('nope', 'c-x', 'snap-x')),
+        ).rejects.toBeInstanceOf(UnknownEntityError);
+      });
+    });
+
+    describe('workspace-scoped writes fail closed (Invariant 8)', () => {
+      it('refuses to insert a snapshot into another tenant’s source', async () => {
+        await expect(
+          store.insertSnapshot(WS_B.id, snapshotOn(SRC_A.id, 'snap-leak')),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+
+      it('refuses to insert a delta onto another tenant’s source', async () => {
+        await expect(
+          store.insertDelta(WS_B.id, deltaOn(SRC_A.id, 'd-leak')),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+
+      it('refuses to transition another tenant’s delta', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-a');
+        await expect(store.transitionDelta(WS_B.id, 'd-a', 'dismissed')).rejects.toBeInstanceOf(
+          CrossTenantError,
+        );
+      });
+
+      it('refuses to attach a claim to another tenant’s delta', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-a');
+        await expect(
+          store.insertClaim(WS_B.id, claimOn('d-a', 'c-leak', 'd-a-snap')),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+
+      it('refuses a latest-snapshot lookup against another tenant’s source', async () => {
+        await expect(store.latestSnapshot(WS_B.id, SRC_A.id)).rejects.toBeInstanceOf(
+          CrossTenantError,
+        );
+      });
+    });
+
+    describe('workspace-scoped reads never leak (Invariant 8)', () => {
+      beforeEach(async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-a');
+        await store.insertClaim(WS_A.id, claimOn('d-a', 'c-a', 'd-a-snap'));
+        await store.insertCoverageRun(coverageOn(WS_A.id, 'cov-a'));
+      });
+
+      it('does not return another workspace’s deltas, claims, or coverage', async () => {
+        expect(await store.listDeltas(WS_B.id)).toEqual([]);
+        expect(await store.listClaimsForDelta(WS_B.id, 'd-a')).toEqual([]);
+        expect(await store.listCoverageRuns(WS_B.id)).toEqual([]);
+      });
+
+      it('returns the owning workspace’s rows', async () => {
+        expect(await store.listDeltas(WS_A.id)).toHaveLength(1);
+        expect(await store.listClaimsForDelta(WS_A.id, 'd-a')).toHaveLength(1);
+        expect(await store.listCoverageRuns(WS_A.id)).toHaveLength(1);
+      });
+    });
+
+    describe('delta state machine & pricing firewall (Invariant 3)', () => {
+      it('publishes a non-pricing delta directly', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-feat', { triageClass: 'feature_launch' });
+        const published = await store.transitionDelta(WS_A.id, 'd-feat', 'published');
+        expect(published.state).toBe('published');
+      });
+
+      it('forbids a pricing delta from going pending → published', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-price', { triageClass: 'pricing_change' });
+        await expect(store.transitionDelta(WS_A.id, 'd-price', 'published')).rejects.toBeInstanceOf(
+          IllegalTransitionError,
+        );
+      });
+
+      it('refuses to confirm without a reproducing snapshot', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-price', { triageClass: 'pricing_change' });
+        await expect(store.transitionDelta(WS_A.id, 'd-price', 'confirmed')).rejects.toBeInstanceOf(
+          IllegalTransitionError,
+        );
+      });
+
+      it('lets a confirmed pricing delta publish and retains the confirming snapshot', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-price', { triageClass: 'pricing_change' });
+        await store.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-confirm'));
+
+        const confirmed = await store.transitionDelta(
+          WS_A.id,
+          'd-price',
+          'confirmed',
+          'snap-confirm',
+        );
+        expect(confirmed.state).toBe('confirmed');
+        expect(confirmed.confirmedBySnapshotId).toBe('snap-confirm');
+
+        const published = await store.transitionDelta(WS_A.id, 'd-price', 'published');
+        expect(published.state).toBe('published');
+        expect(published.confirmedBySnapshotId).toBe('snap-confirm');
+      });
+
+      it('keeps dismissed terminal (evidence retained, never resurrected)', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-noise', { triageClass: 'noise' });
+        await store.transitionDelta(WS_A.id, 'd-noise', 'dismissed');
+        await expect(store.transitionDelta(WS_A.id, 'd-noise', 'published')).rejects.toBeInstanceOf(
+          IllegalTransitionError,
+        );
+      });
+    });
+
+    describe('withTransaction is atomic', () => {
+      it('rolls back every write when the transaction throws', async () => {
+        await expect(
+          store.withTransaction(async (tx) => {
+            await tx.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-rollback'));
+            throw new Error('boom');
+          }),
+        ).rejects.toThrow('boom');
+
+        expect(await store.latestSnapshot(WS_A.id, SRC_A.id)).toBeNull();
+      });
+
+      it('commits every write when the transaction resolves', async () => {
+        await store.withTransaction(async (tx) => {
+          await tx.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-commit'));
+          await tx.insertDelta(
+            WS_A.id,
+            deltaOn(SRC_A.id, 'd-commit', { toSnapshotId: 'snap-commit' }),
+          );
+        });
+
+        const latest = await store.latestSnapshot(WS_A.id, SRC_A.id);
+        expect(latest?.id).toBe('snap-commit');
+        expect(await store.listDeltas(WS_A.id)).toHaveLength(1);
+      });
+    });
+  });
+};

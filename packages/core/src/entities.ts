@@ -72,6 +72,12 @@ export interface Snapshot {
   readonly normalizedText: string;
   readonly fetchedAt: Date;
   readonly httpStatus: number;
+  /**
+   * Region/context of the fetch. The confirmation re-fetch (Invariant 3) sets a distinct vantage
+   * so a flapping pricing page reads as the same change from a second viewpoint. `null` on the
+   * primary pass.
+   */
+  readonly vantage: string | null;
 }
 
 export interface Delta {
@@ -84,6 +90,11 @@ export interface Delta {
   readonly materiality: number;
   readonly rationale: string;
   readonly state: DeltaState;
+  /**
+   * The reproducing snapshot that promoted a pricing delta out of `pending` (Invariant 3). Set only
+   * on `confirmed`/`published` pricing deltas; `null` otherwise.
+   */
+  readonly confirmedBySnapshotId: string | null;
   readonly createdAt: Date;
 }
 

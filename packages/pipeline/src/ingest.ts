@@ -92,15 +92,19 @@ const handleChangedContent = async (
   const spans = diffChangedSpans(previous.normalizedText, snapshot.normalizedText);
   // Invariant 2: the model only ever sees changed spans, and only after a hash change.
   assertTriageAllowed(previous.contentHash, snapshot.contentHash, spans);
-  const rawResult = await deps.triage.classify({ sourceType: ctx.source.type, changedSpans: spans });
+  const rawResult = await deps.triage.classify({
+    sourceType: ctx.source.type,
+    changedSpans: spans,
+  });
   const triage = TriageResultSchema.parse(rawResult);
   const llmCostCents = estimateTriageCostCents(spans.reduce((sum, s) => sum + s.text.length, 0));
 
   const drafts = pinClaims(spans, ctx.source.url, fetchedAt);
   const gate = gatePublish(drafts, snapshot.normalizedText);
   const state = deltaStateFor(triage, gate.publishable);
+  const workspaceId = ctx.workspace.id;
 
-  const delta = await deps.store.insertDelta({
+  const delta = await deps.store.insertDelta(workspaceId, {
     id: deps.nextId(),
     sourceId: ctx.source.id,
     fromSnapshotId: previous.id,
@@ -110,11 +114,14 @@ const handleChangedContent = async (
     materiality: triage.materiality,
     rationale: triage.rationale,
     state,
+    // Invariant 3: confirmation is a later pass (M2 fetch track); a fresh pricing delta has no
+    // reproducing snapshot yet and stays pending until one arrives.
+    confirmedBySnapshotId: null,
     createdAt: fetchedAt,
   });
   const claims = await Promise.all(
     drafts.map((draft) =>
-      deps.store.insertClaim({
+      deps.store.insertClaim(workspaceId, {
         id: deps.nextId(),
         deltaId: delta.id,
         snapshotId: snapshot.id,
@@ -157,23 +164,31 @@ export const ingestFetch = async (
     return { kind: 'fetch_failed', error: message };
   }
   const hash = contentHash(normalizedText);
-  const previous = await deps.store.latestSnapshot(ctx.source.id);
+  const workspaceId = ctx.workspace.id;
+  const previous = await deps.store.latestSnapshot(workspaceId, ctx.source.id);
   if (previous !== null && previous.contentHash === hash) {
     // Unchanged: STOP before any model call (Invariant 2); still counted (Invariant 7).
     await recordCoverage(ctx, deps, fetchedAt, {});
     return { kind: 'unchanged' };
   }
-  const snapshot = await deps.store.insertSnapshot({
-    id: deps.nextId(),
-    sourceId: ctx.source.id,
-    contentHash: hash,
-    normalizedText,
-    fetchedAt,
-    httpStatus: 200,
+  // Atomic write set (Invariant 1): the snapshot, its delta + pinned claims, and the coverage row
+  // commit together or not at all, so a mid-write failure never leaves an orphan snapshot or a
+  // delta with partial claims. recordCoverage/handleChangedContent write through the tx handle.
+  return deps.store.withTransaction(async (tx) => {
+    const txDeps: IngestDeps = { ...deps, store: tx };
+    const snapshot = await tx.insertSnapshot(workspaceId, {
+      id: deps.nextId(),
+      sourceId: ctx.source.id,
+      contentHash: hash,
+      normalizedText,
+      fetchedAt,
+      httpStatus: 200,
+      vantage: null,
+    });
+    if (previous === null) {
+      await recordCoverage(ctx, txDeps, fetchedAt, {});
+      return { kind: 'baseline', snapshot };
+    }
+    return handleChangedContent(ctx, txDeps, previous, snapshot, fetchedAt);
   });
-  if (previous === null) {
-    await recordCoverage(ctx, deps, fetchedAt, {});
-    return { kind: 'baseline', snapshot };
-  }
-  return handleChangedContent(ctx, deps, previous, snapshot, fetchedAt);
 };
