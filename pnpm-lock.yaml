@@ -98,6 +98,9 @@ importers:
         specifier: ^3.25.0
         version: 3.25.76
     devDependencies:
+      '@flank/pipeline':
+        specifier: workspace:*
+        version: link:../pipeline
       '@types/node':
         specifier: ^22.13.0
         version: 22.19.7

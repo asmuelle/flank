@@ -20,6 +20,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@flank/pipeline": "workspace:*",
     "@types/node": "^22.13.0",
     "drizzle-kit": "^0.31.0",
     "typescript": "^5.7.3",

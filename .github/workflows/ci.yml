@@ -55,6 +55,10 @@ jobs:
         if: steps.bootstrap.outputs.bootstrapped == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Run CI suite (lint + typecheck + test + build)
+      - name: Run CI suite (lint + typecheck + coverage + build)
         if: steps.bootstrap.outputs.bootstrapped == 'true'
         run: just ci
+
+      - name: Run DB-backed integration tests (applies migrations, runs the FlankStore contract)
+        if: steps.bootstrap.outputs.bootstrapped == 'true'
+        run: just test-integration

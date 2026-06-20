@@ -12,6 +12,7 @@
     "dev": "pnpm --filter @flank/web dev",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "e2e": "pnpm --filter @flank/web e2e",
     "lint": "eslint .",
     "format": "prettier --write .",

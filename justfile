@@ -51,6 +51,10 @@ test: _bootstrapped
 coverage: _bootstrapped
     pnpm test:coverage
 
+# Run DB-backed integration tests (needs DATABASE_URL; specs skip cleanly without it)
+test-integration: _bootstrapped
+    pnpm test:integration
+
 # Run end-to-end tests (Playwright)
 e2e: _bootstrapped
     pnpm e2e

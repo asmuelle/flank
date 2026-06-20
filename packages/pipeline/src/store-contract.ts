@@ -144,9 +144,11 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
 
       it('rejects a duplicate delta id', async () => {
         await seedDelta(WS_A.id, SRC_A.id, 'd-1');
-        await expect(store.insertDelta(WS_A.id, deltaOn(SRC_A.id, 'd-1'))).rejects.toBeInstanceOf(
-          AppendOnlyViolationError,
-        );
+        // Reuse the seeded snapshot so only the primary key collides — a FK-backed store must not
+        // surface a foreign-key error here instead of the append-only breach.
+        await expect(
+          store.insertDelta(WS_A.id, deltaOn(SRC_A.id, 'd-1', { toSnapshotId: 'd-1-snap' })),
+        ).rejects.toBeInstanceOf(AppendOnlyViolationError);
       });
 
       it('rejects a duplicate claim id', async () => {
