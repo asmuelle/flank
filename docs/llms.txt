@@ -1,0 +1,40 @@
+# Flank
+
+> The living competitor radar for B2B SaaS. Flank runs always-on agents that maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival — pushing only the material deltas: what changed, why it matters, how to respond. Synthesis with memory, not another alert firehose. Pre-launch / coming soon.
+
+## What it is
+
+Flank is a competitive-intelligence tool for B2B SaaS. A standing agent watches a fixed source graph per competitor and surfaces only material changes. Content-hash diffing means the model only ever sees changed content; a triage pass scores each delta (pricing change, feature launch, repositioning, leadership hire, hiring signal); a nightly pass updates the dossier and regenerates only the affected battlecard sections. Every claim is pinned to an exact quote, source URL, and timestamp, then span-verified against the stored snapshot before publish.
+
+Flank is a competitive-research and monitoring tool, not a system of record. Deltas, materiality scores, and battlecards are agent-generated estimates drawn from public sources, and coverage varies — some pages are anti-bot-protected, personalized, or contractually restricted. Verify any material claim before acting on it, especially in a live deal.
+
+## Who it's for
+
+Founders, PMMs (product marketers), and sales teams at B2B SaaS companies who need to track rivals without drowning in Google Alerts noise or re-running one-shot ChatGPT research that forgets everything between runs.
+
+## Key features
+
+- Living dossiers: versioned, never wiped — a longitudinal change timeline per competitor (pricing archaeology, feature history, hiring trajectory).
+- Materiality triage: content-hash diffing surfaces only changed content; a fast triage pass scores each delta so noise never reaches your team.
+- Citation pinning: every claim extracted with its exact quote, source URL, and timestamp, then string-verified against the stored snapshot before it is shown.
+- Self-refreshing battlecards: one nightly frontier pass regenerates only the affected battlecard sections, never the whole artifact.
+- Delivery where teams work: material deltas arrive as a Slack alert and an email digest; deal-context alerts can fire when a tracked competitor attaches to an open CRM opportunity, with a HubSpot/Salesforce sidebar and Notion export at the Team tier.
+
+## Pricing
+
+Three self-serve plans (prices indicative, pre-launch). Extra competitors are +$10/mo each. Annual prepay = two months free.
+
+- Starter — $79/mo: up to 5 competitors tracked, email digest of material deltas, citation-pinned dossiers.
+- Growth — $199/mo (most popular, the anchor): up to 15 competitors tracked, Slack alerts on material deltas, auto-maintained battlecards, full change history & timeline.
+- Team — $449/mo: up to 40 competitors tracked, HubSpot / Salesforce sidebar, multi-seat, SSO & API.
+
+## FAQ highlights
+
+- Different from ChatGPT/Perplexity scheduled research: one-shot research has no cross-run memory; Flank's bet is versioned dossiers, content-hash diffing, materiality triage, and span-verified provenance.
+- Trustworthy alerts: every claim is quote/URL/timestamp-extracted and string-verified before publish; pricing pages are A/B-tested and personalized, so no tool can promise perfect recall — verify material claims before acting.
+- What it monitors: a fixed source graph per competitor — pricing pages, changelogs/release notes, docs diffs, app-store listings, public job-board feeds (Greenhouse / Lever / Ashby), review streams, status pages, blog/PR/RSS, plus new-page and news discovery.
+- Availability and cost: pre-launch; three tiers (Starter $79, Growth $199, Team $449), $10/mo per extra competitor, two months free on annual prepay. Join the waitlist for early access.
+
+## Link
+
+- Flank: https://asmuelle.github.io/flank/

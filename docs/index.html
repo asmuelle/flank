@@ -10,6 +10,9 @@
     />
     <meta name="theme-color" content="#0A0E12" />
 
+    <link rel="canonical" href="https://asmuelle.github.io/flank/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+
     <link
       rel="icon"
       type="image/svg+xml"
@@ -17,17 +20,32 @@
     />
 
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://asmuelle.github.io/flank/" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content="Flank — The living competitor radar for B2B SaaS" />
     <meta
       property="og:description"
       content="Always-on agents maintain citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond. Coming soon."
     />
     <meta property="og:site_name" content="Flank" />
-    <meta property="og:image" content="og.png" />
+    <meta property="og:image" content="https://asmuelle.github.io/flank/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Flank competitive radar showing tracked rivals as blips with a rotating scan sweep and a highlighted pricing delta."
+    />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="og.png" />
+    <meta name="twitter:title" content="Flank — The living competitor radar for B2B SaaS" />
+    <meta
+      name="twitter:description"
+      content="Always-on agents maintain citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond. Coming soon."
+    />
+    <meta name="twitter:image" content="https://asmuelle.github.io/flank/og.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Flank competitive radar showing tracked rivals as blips with a rotating scan sweep and a highlighted pricing delta."
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1050,6 +1068,122 @@
       async
       src="//gc.zgo.at/count.js"
     ></script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://asmuelle.github.io/flank/#website",
+            "url": "https://asmuelle.github.io/flank/",
+            "name": "Flank",
+            "description": "The living competitor radar for B2B SaaS — always-on agents maintain citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas.",
+            "publisher": { "@id": "https://asmuelle.github.io/flank/#organization" },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://asmuelle.github.io/flank/#organization",
+            "name": "Flank",
+            "url": "https://asmuelle.github.io/flank/",
+            "logo": "https://asmuelle.github.io/flank/og.png"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://asmuelle.github.io/flank/#software",
+            "name": "Flank",
+            "applicationCategory": "BusinessApplication",
+            "url": "https://asmuelle.github.io/flank/",
+            "description": "Flank runs always-on agents that maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival — pushing only material deltas: what changed, why it matters, how to respond.",
+            "publisher": { "@id": "https://asmuelle.github.io/flank/#organization" },
+            "offers": [
+              {
+                "@type": "Offer",
+                "name": "Starter",
+                "price": "79",
+                "priceCurrency": "USD",
+                "priceSpecification": {
+                  "@type": "UnitPriceSpecification",
+                  "price": "79",
+                  "priceCurrency": "USD",
+                  "unitText": "MONTH"
+                }
+              },
+              {
+                "@type": "Offer",
+                "name": "Growth",
+                "price": "199",
+                "priceCurrency": "USD",
+                "priceSpecification": {
+                  "@type": "UnitPriceSpecification",
+                  "price": "199",
+                  "priceCurrency": "USD",
+                  "unitText": "MONTH"
+                }
+              },
+              {
+                "@type": "Offer",
+                "name": "Team",
+                "price": "449",
+                "priceCurrency": "USD",
+                "priceSpecification": {
+                  "@type": "UnitPriceSpecification",
+                  "price": "449",
+                  "priceCurrency": "USD",
+                  "unitText": "MONTH"
+                }
+              }
+            ],
+            "aggregateOffer": {
+              "@type": "AggregateOffer",
+              "priceCurrency": "USD",
+              "lowPrice": "79",
+              "highPrice": "449",
+              "offerCount": "3"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://asmuelle.github.io/flank/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How is this different from ChatGPT or Perplexity scheduled research?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "One-shot research regenerates today's snapshot and forgets it by the next run — there's no cross-run memory and no \"what changed since last time.\" Flank is built around exactly that gap: versioned dossiers, content-hash diffing so the model only sees what actually changed, and a longitudinal timeline per competitor. The general-purpose tools are real and capable; Flank's bet is on memory, materiality triage, and span-verified provenance, not on being a better one-shot researcher."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do you keep alerts trustworthy and avoid false deltas?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Every claim is extracted with its exact quote, source URL, and timestamp, then string-verified against the stored snapshot before publish — so misattributed citations don't ship. We're candid about the hard part: pricing pages are A/B-tested, geo-personalized, and cookie-gated, and no monitoring tool can promise perfect recall. Flank treats CI as a research and monitoring aid, surfaces its evidence, and expects you to verify a material claim before acting on it in a live deal."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What does Flank actually monitor?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A fixed source graph per competitor: pricing pages, changelogs and release notes, docs diffs, app-store listings, public job-board feeds (Greenhouse / Lever / Ashby), review streams, status pages, and blog/PR/RSS, with new-page and news discovery on top. Some sources are anti-bot-protected or contractually restricted, so coverage varies by competitor and source — we'd rather be straight about that than overpromise a single all-seeing crawler."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "When can I use it, and what does it cost?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Flank is pre-launch. The plan is three self-serve tiers — Starter $79/mo (5 competitors), Growth $199/mo (15 competitors, the anchor), and Team $449/mo (40 competitors, CRM sidebar, SSO, API) — with $10/mo per extra competitor and two months free on annual prepay. Prices are indicative and may change before launch. Join the waitlist and we'll let you know when early access opens."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <a href="#main" class="visually-hidden">Skip to content</a>
