@@ -43,8 +43,9 @@ export class MockTriageClient implements TriageClient {
 }
 
 /** The real-SDK transport, lazy-imported so @anthropic-ai/sdk stays out of the web bundle. A
- * runtime tripwire makes a live call IMPOSSIBLE under test/CI, even if the seam is mis-wired. */
-const realSdkMessageCreator =
+ * runtime tripwire makes a live call IMPOSSIBLE under test/CI, even if the seam is mis-wired. Shared
+ * by the triage and synthesis live factories (both use the synchronous messages.create seam). */
+export const realSdkMessageCreator =
   (apiKey: string): MessageCreator =>
   async (params) => {
     if (process.env.VITEST !== undefined || process.env.FLANK_NO_LLM !== undefined) {

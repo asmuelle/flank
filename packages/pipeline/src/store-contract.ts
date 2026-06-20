@@ -3,9 +3,11 @@ import {
   CrossTenantError,
   IllegalTransitionError,
   UnknownEntityError,
+  type BattlecardSection,
   type Claim,
   type CoverageRun,
   type Delta,
+  type DossierSection,
   type FlankStore,
   type Snapshot,
 } from '@flank/core';
@@ -106,6 +108,42 @@ const coverageOn = (
   materialDeltas: 1,
   llmCalls: 1,
   llmCostMicros: 0,
+  createdAt: AT,
+  ...over,
+});
+
+const dossierOn = (
+  competitorId: string,
+  id: string,
+  version: number,
+  over: Partial<DossierSection> = {},
+): DossierSection => ({
+  id,
+  competitorId,
+  kind: 'pricing',
+  version,
+  contentMd: `# pricing v${version}`,
+  claimIds: [],
+  model: 'claude-sonnet-4-6',
+  batchId: 'batch-1',
+  supersedesId: null,
+  createdAt: AT,
+  ...over,
+});
+
+const battlecardOn = (
+  competitorId: string,
+  id: string,
+  version: number,
+  over: Partial<BattlecardSection> = {},
+): BattlecardSection => ({
+  id,
+  competitorId,
+  kind: 'pricing_counter',
+  version,
+  contentMd: `# pricing_counter v${version}`,
+  claimIds: [],
+  supersedesId: null,
   createdAt: AT,
   ...over,
 });
@@ -353,6 +391,92 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         expect(await store.monthToDateCostMicros(WS_A.id, '2026-06')).toBe(1000);
         expect(await store.monthToDateCostMicros(WS_B.id, '2026-06')).toBe(5000);
         expect(await store.monthToDateCostMicros(WS_A.id, '2026-07')).toBe(0);
+      });
+    });
+
+    describe('synthesis surface: section version chains (M2)', () => {
+      it('builds an append-only (competitor, kind) version chain via supersedesId', async () => {
+        const v1 = await store.insertDossierSection(WS_A.id, dossierOn(COMP_A.id, 'ds-1', 1));
+        expect(v1.supersedesId).toBeNull();
+        expect((await store.latestDossierSection(WS_A.id, COMP_A.id, 'pricing'))?.id).toBe('ds-1');
+
+        const v2 = await store.insertDossierSection(
+          WS_A.id,
+          dossierOn(COMP_A.id, 'ds-2', 2, { supersedesId: 'ds-1' }),
+        );
+        expect(v2.version).toBe(2);
+        // The chain pointer actually references the prior version — not decorative.
+        expect(v2.supersedesId).toBe('ds-1');
+        const head = await store.latestDossierSection(WS_A.id, COMP_A.id, 'pricing');
+        expect(head?.id).toBe('ds-2');
+        expect(await store.listDossierSections(WS_A.id, COMP_A.id)).toHaveLength(2);
+      });
+
+      it('rejects a duplicate (competitor, kind, version)', async () => {
+        await store.insertDossierSection(WS_A.id, dossierOn(COMP_A.id, 'ds-1', 1));
+        await expect(
+          store.insertDossierSection(WS_A.id, dossierOn(COMP_A.id, 'ds-dup', 1)),
+        ).rejects.toBeInstanceOf(AppendOnlyViolationError);
+      });
+
+      it('scopes section writes and reads to the owning workspace (Invariant 8)', async () => {
+        await expect(
+          store.insertDossierSection(WS_B.id, dossierOn(COMP_A.id, 'ds-leak', 1)),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+        await expect(
+          store.latestDossierSection(WS_B.id, COMP_A.id, 'pricing'),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+
+      it('supports battlecard chains too', async () => {
+        await store.insertBattlecardSection(WS_A.id, battlecardOn(COMP_A.id, 'bc-1', 1));
+        expect(
+          (await store.latestBattlecardSection(WS_A.id, COMP_A.id, 'pricing_counter'))?.id,
+        ).toBe('bc-1');
+      });
+
+      it('frees the reserved version when an inserting transaction rolls back', async () => {
+        await expect(
+          store.withTransaction(async (tx) => {
+            await tx.insertDossierSection(WS_A.id, dossierOn(COMP_A.id, 'ds-rb', 1));
+            throw new Error('boom');
+          }),
+        ).rejects.toThrow('boom');
+        // v1 must be insertable again — the rolled-back reservation was released.
+        const again = await store.insertDossierSection(WS_A.id, dossierOn(COMP_A.id, 'ds-ok', 1));
+        expect(again.version).toBe(1);
+      });
+    });
+
+    describe('synthesis surface: claim resolver + confirmed material deltas (M2)', () => {
+      it('resolves claim ids workspace-scoped (foreign tenant gets nothing)', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-1');
+        await store.insertClaim(WS_A.id, claimOn('d-1', 'c-1', 'd-1-snap'));
+
+        const resolved = await store.getClaimsByIds(WS_A.id, ['c-1', 'missing']);
+        expect(resolved.map((c) => c.id)).toEqual(['c-1']);
+        expect(await store.getClaimsByIds(WS_B.id, ['c-1'])).toEqual([]);
+      });
+
+      it('lists only confirmed/published, material, non-noise deltas for a competitor', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', {
+          state: 'published',
+          materiality: 2,
+          triageClass: 'feature_launch',
+        });
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pending', {
+          state: 'pending',
+          materiality: 3,
+          triageClass: 'pricing_change',
+        });
+        await seedDelta(WS_A.id, SRC_A.id, 'd-noise', {
+          state: 'published',
+          materiality: 0,
+          triageClass: 'noise',
+        });
+
+        const material = await store.listConfirmedMaterialDeltasForCompetitor(WS_A.id, COMP_A.id);
+        expect(material.map((d) => d.id)).toEqual(['d-pub']);
       });
     });
 

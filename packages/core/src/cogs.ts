@@ -113,6 +113,27 @@ export const estimateTriageCostMicros = (inputChars: number): number =>
     cacheWriteTokens: 0,
   });
 
+/** Conservative per-section input/output allowances for the synthesis pre-spend projection. */
+const SYNTHESIS_INPUT_TOKENS_PER_SECTION = 2_500;
+const SYNTHESIS_OUTPUT_TOKENS_PER_SECTION = 1_200;
+
+/**
+ * Conservative pre-spend projection in micros for regenerating `sectionCount` sections via Sonnet.
+ * Used by the synthesis budget gate to project the WHOLE affected set before any spend. Priced at the
+ * SYNCHRONOUS rate (no batch discount) because synthesis currently uses the synchronous Messages API
+ * — metering and billing must match. Note: the Sonnet rate is MEDIUM confidence (see MODEL_PRICING).
+ */
+export const estimateSynthesisCostMicros = (sectionCount: number): number =>
+  sectionCount <= 0
+    ? 0
+    : meterCost({
+        model: 'claude-sonnet-4-6',
+        inputTokens: SYNTHESIS_INPUT_TOKENS_PER_SECTION * sectionCount,
+        outputTokens: SYNTHESIS_OUTPUT_TOKENS_PER_SECTION * sectionCount,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      });
+
 /**
  * Per-tier monthly COGS cap in micro-USD (Invariant 6). Growth ($15) is the verified gate; starter
  * and team are generous soft-cap estimates — tune against measured COGS once synthesis spend lands.

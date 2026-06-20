@@ -126,6 +126,49 @@ export interface CoverageRun {
   readonly createdAt: Date;
 }
 
+// Section kind value-sets — the single source of truth the Drizzle pgEnums mirror. ORDER IS LOAD-
+// BEARING: it must match the existing Postgres enum value order, or a destructive enum migration is
+// required. Do not reorder.
+export const DOSSIER_SECTION_KINDS = ['overview', 'pricing', 'product', 'gtm', 'team'] as const;
+export type DossierSectionKind = (typeof DOSSIER_SECTION_KINDS)[number];
+
+export const BATTLECARD_SECTION_KINDS = [
+  'why_we_win',
+  'landmines',
+  'pricing_counter',
+  'objections',
+] as const;
+export type BattlecardSectionKind = (typeof BATTLECARD_SECTION_KINDS)[number];
+
+/**
+ * Append-only version chain (Invariant 5): one published row per (competitor, kind, version), each
+ * superseding the prior via supersedesId. The accumulating chain IS the moat.
+ */
+export interface DossierSection {
+  readonly id: string;
+  readonly competitorId: string;
+  readonly kind: DossierSectionKind;
+  readonly version: number;
+  readonly contentMd: string;
+  readonly claimIds: readonly string[];
+  readonly model: string | null;
+  readonly batchId: string | null;
+  readonly supersedesId: string | null;
+  readonly createdAt: Date;
+}
+
+/** Append-only version chain (Invariant 5). Battlecards carry no model/batch provenance columns. */
+export interface BattlecardSection {
+  readonly id: string;
+  readonly competitorId: string;
+  readonly kind: BattlecardSectionKind;
+  readonly version: number;
+  readonly contentMd: string;
+  readonly claimIds: readonly string[];
+  readonly supersedesId: string | null;
+  readonly createdAt: Date;
+}
+
 /** Boundary validation for source definitions arriving from config/UI (AGENTS.md: validate external data). */
 export const SourceConfigSchema = z.object({
   id: z.string().min(1),

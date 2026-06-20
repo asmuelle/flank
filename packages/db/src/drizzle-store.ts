@@ -3,25 +3,32 @@ import {
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type BattlecardSection,
+  type BattlecardSectionKind,
   type Claim,
   type Competitor,
   type CoverageRun,
   type Delta,
   type DeltaState,
+  type DossierSection,
+  type DossierSectionKind,
   type FlankStore,
   type ScheduledDelta,
   type ScheduledSource,
   type Snapshot,
   type Source,
+  type SynthesisCompetitor,
   type Workspace,
 } from '@flank/core';
-import { and, desc, eq, like, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, ne, sql } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
+  battlecardSections,
   claims,
   competitors,
   coverageRuns,
   deltas,
+  dossierSections,
   snapshots,
   sources,
   workspaces,
@@ -101,6 +108,32 @@ const toCoverageRun = (row: typeof coverageRuns.$inferSelect): CoverageRun =>
     materialDeltas: row.materialDeltas,
     llmCalls: row.llmCalls,
     llmCostMicros: assertSafeInteger(row.llmCostMicros, 'coverage_run.llm_cost_micros'),
+    createdAt: row.createdAt,
+  });
+
+const toDossierSection = (row: typeof dossierSections.$inferSelect): DossierSection =>
+  Object.freeze({
+    id: row.id,
+    competitorId: row.competitorId,
+    kind: row.kind,
+    version: row.version,
+    contentMd: row.contentMd,
+    claimIds: row.claimIds,
+    model: row.model,
+    batchId: row.batchId,
+    supersedesId: row.supersedesId,
+    createdAt: row.createdAt,
+  });
+
+const toBattlecardSection = (row: typeof battlecardSections.$inferSelect): BattlecardSection =>
+  Object.freeze({
+    id: row.id,
+    competitorId: row.competitorId,
+    kind: row.kind,
+    version: row.version,
+    contentMd: row.contentMd,
+    claimIds: row.claimIds,
+    supersedesId: row.supersedesId,
     createdAt: row.createdAt,
   });
 
@@ -480,6 +513,180 @@ export class DrizzleFlankStore implements FlankStore {
           workspace: toWorkspace(row.workspace),
           source: toSource(row.source),
           delta: toDelta(row.delta),
+        }),
+      ),
+    );
+  }
+
+  private async requireCompetitorInWorkspace(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<void> {
+    const rows = await this.db
+      .select({ ownerWorkspaceId: competitors.workspaceId })
+      .from(competitors)
+      .where(eq(competitors.id, competitorId))
+      .limit(1);
+    const owner = rows[0]?.ownerWorkspaceId;
+    if (owner === undefined) {
+      throw new UnknownEntityError(`competitor ${competitorId} does not exist`);
+    }
+    if (owner !== workspaceId) {
+      throw new CrossTenantError(`competitor ${competitorId} is not in workspace ${workspaceId}`);
+    }
+  }
+
+  async insertDossierSection(
+    workspaceId: string,
+    section: DossierSection,
+  ): Promise<DossierSection> {
+    await this.requireCompetitorInWorkspace(workspaceId, section.competitorId);
+    return this.insertOne(
+      () =>
+        this.db
+          .insert(dossierSections)
+          .values({
+            id: section.id,
+            competitorId: section.competitorId,
+            kind: section.kind,
+            version: section.version,
+            contentMd: section.contentMd,
+            claimIds: section.claimIds,
+            model: section.model,
+            batchId: section.batchId,
+            supersedesId: section.supersedesId,
+            createdAt: section.createdAt,
+          })
+          .returning(),
+      toDossierSection,
+      'dossier_section',
+    );
+  }
+
+  async insertBattlecardSection(
+    workspaceId: string,
+    section: BattlecardSection,
+  ): Promise<BattlecardSection> {
+    await this.requireCompetitorInWorkspace(workspaceId, section.competitorId);
+    return this.insertOne(
+      () =>
+        this.db
+          .insert(battlecardSections)
+          .values({
+            id: section.id,
+            competitorId: section.competitorId,
+            kind: section.kind,
+            version: section.version,
+            contentMd: section.contentMd,
+            claimIds: section.claimIds,
+            supersedesId: section.supersedesId,
+            createdAt: section.createdAt,
+          })
+          .returning(),
+      toBattlecardSection,
+      'battlecard_section',
+    );
+  }
+
+  async latestDossierSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: DossierSectionKind,
+  ): Promise<DossierSection | null> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select()
+      .from(dossierSections)
+      .where(and(eq(dossierSections.competitorId, competitorId), eq(dossierSections.kind, kind)))
+      .orderBy(desc(dossierSections.version))
+      .limit(1);
+    return rows[0] ? toDossierSection(rows[0]) : null;
+  }
+
+  async latestBattlecardSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: BattlecardSectionKind,
+  ): Promise<BattlecardSection | null> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select()
+      .from(battlecardSections)
+      .where(
+        and(eq(battlecardSections.competitorId, competitorId), eq(battlecardSections.kind, kind)),
+      )
+      .orderBy(desc(battlecardSections.version))
+      .limit(1);
+    return rows[0] ? toBattlecardSection(rows[0]) : null;
+  }
+
+  async listDossierSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly DossierSection[]> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select()
+      .from(dossierSections)
+      .where(eq(dossierSections.competitorId, competitorId));
+    return Object.freeze(rows.map(toDossierSection));
+  }
+
+  async listBattlecardSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly BattlecardSection[]> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select()
+      .from(battlecardSections)
+      .where(eq(battlecardSections.competitorId, competitorId));
+    return Object.freeze(rows.map(toBattlecardSection));
+  }
+
+  async getClaimsByIds(
+    workspaceId: string,
+    claimIds: readonly string[],
+  ): Promise<readonly Claim[]> {
+    if (claimIds.length === 0) return Object.freeze([]);
+    const rows = await this.db
+      .select()
+      .from(claims)
+      .where(and(inArray(claims.id, [...claimIds]), eq(claims.workspaceId, workspaceId)));
+    return Object.freeze(rows.map(toClaim));
+  }
+
+  async listConfirmedMaterialDeltasForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Delta[]> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select({ delta: deltas })
+      .from(deltas)
+      .innerJoin(sources, eq(deltas.sourceId, sources.id))
+      .where(
+        and(
+          eq(sources.competitorId, competitorId),
+          eq(deltas.workspaceId, workspaceId),
+          inArray(deltas.state, ['confirmed', 'published']),
+          sql`${deltas.materiality} > 0`,
+          ne(deltas.triageClass, 'noise'),
+        ),
+      );
+    return Object.freeze(rows.map((row) => toDelta(row.delta)));
+  }
+
+  async listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]> {
+    const rows = await this.db
+      .select({ competitor: competitors, workspace: workspaces })
+      .from(competitors)
+      .innerJoin(workspaces, eq(competitors.workspaceId, workspaces.id));
+    return Object.freeze(
+      rows.map((row) =>
+        Object.freeze({
+          workspace: toWorkspace(row.workspace),
+          competitor: toCompetitor(row.competitor),
         }),
       ),
     );

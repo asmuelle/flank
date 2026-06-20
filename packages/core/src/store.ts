@@ -1,9 +1,13 @@
 import type {
+  BattlecardSection,
+  BattlecardSectionKind,
   Claim,
   Competitor,
   CoverageRun,
   Delta,
   DeltaState,
+  DossierSection,
+  DossierSectionKind,
   Snapshot,
   Source,
   TriageClass,
@@ -122,6 +126,12 @@ export interface ScheduledDelta {
   readonly delta: Delta;
 }
 
+/** A competitor plus its tenant, for the nightly synthesis worker. */
+export interface SynthesisCompetitor {
+  readonly workspace: Workspace;
+  readonly competitor: Competitor;
+}
+
 export interface FlankStore {
   seedWorkspace(workspace: Workspace): Promise<Workspace>;
   seedCompetitor(competitor: Competitor): Promise<Competitor>;
@@ -166,6 +176,43 @@ export interface FlankStore {
   markSourceFailed(sourceId: string): Promise<void>;
   /** Pending pricing deltas awaiting the confirmation firewall, with re-fetch context. */
   listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]>;
+
+  // --- Synthesis surface (M2) ---
+  // Sections have no workspace_id column; every method scopes via the competitor's workspace.
+
+  insertDossierSection(workspaceId: string, section: DossierSection): Promise<DossierSection>;
+  insertBattlecardSection(
+    workspaceId: string,
+    section: BattlecardSection,
+  ): Promise<BattlecardSection>;
+  /** Head of the (competitor, kind) version chain, or null if none published yet. */
+  latestDossierSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: DossierSectionKind,
+  ): Promise<DossierSection | null>;
+  latestBattlecardSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: BattlecardSectionKind,
+  ): Promise<BattlecardSection | null>;
+  listDossierSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly DossierSection[]>;
+  listBattlecardSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly BattlecardSection[]>;
+  /** Resolve claim ids to rows (workspace-scoped); the section citation gate's claim resolver. */
+  getClaimsByIds(workspaceId: string, claimIds: readonly string[]): Promise<readonly Claim[]>;
+  /** Confirmed/published, material (materiality>0, non-noise) deltas for a competitor's sources. */
+  listConfirmedMaterialDeltasForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Delta[]>;
+  /** Every competitor with its tenant — the nightly synthesis worker's cross-tenant fan-out. */
+  listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]>;
 
   /**
    * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}

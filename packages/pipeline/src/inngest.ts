@@ -1,8 +1,9 @@
-import type { FlankStore, TriageClient } from '@flank/core';
+import type { FlankStore, SynthesisClient, TriageClient } from '@flank/core';
 import { Inngest } from 'inngest';
 import { randomUUID } from 'node:crypto';
 import { HttpFetcher } from './http-fetcher';
 import { runScheduledTick, type SchedulerOptions } from './scheduler';
+import { runNightlySynthesis } from './synthesis';
 
 export const inngest = new Inngest({ id: 'flank' });
 
@@ -34,5 +35,34 @@ export const createScheduledTickFunction = (
       const { store, triage } = await buildRuntime();
       const deps = { store, triage, nextId: () => randomUUID() };
       return runScheduledTick(deps, new HttpFetcher(), new Date(), config.options ?? {});
+    },
+  );
+
+/** Concrete runtime the nightly synthesis cron needs: the real store + synthesis client. */
+export interface SynthesisRuntime {
+  readonly store: FlankStore;
+  readonly client: SynthesisClient;
+}
+
+export interface NightlySynthesisConfig {
+  /** Cron cadence (default 04:00 daily). */
+  readonly cron?: string;
+}
+
+/**
+ * The nightly synthesis cron (DESIGN flow 3): regenerate affected dossier/battlecard sections for
+ * every competitor from confirmed material deltas. The app supplies the runtime (DrizzleFlankStore +
+ * the keyed Sonnet client, or the mock when unkeyed).
+ */
+export const createNightlySynthesisFunction = (
+  buildRuntime: () => Promise<SynthesisRuntime>,
+  config: NightlySynthesisConfig = {},
+) =>
+  inngest.createFunction(
+    { id: 'nightly-synthesis' },
+    { cron: config.cron ?? '0 4 * * *' },
+    async () => {
+      const { store, client } = await buildRuntime();
+      return runNightlySynthesis({ store, client, nextId: () => randomUUID() }, new Date());
     },
   );

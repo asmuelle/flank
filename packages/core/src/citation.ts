@@ -75,3 +75,37 @@ export const gatePublish = (
     failures: Object.freeze(failures),
   });
 };
+
+/** A persisted claim a section cites: quote + offsets pinned to a specific snapshot. */
+export interface SectionClaim {
+  readonly id: string;
+  readonly snapshotId: string;
+  readonly quoteText: string;
+  readonly charStart: number;
+  readonly charEnd: number;
+}
+
+/**
+ * Section publish gate (Invariant 1), for synthesized dossier/battlecard sections whose cited claims
+ * span MULTIPLE snapshots. Pure: each claim is string-verified against the text of ITS OWN snapshot
+ * (looked up in `snapshotTextById`, built once by the caller). Fail closed — a claim whose snapshot
+ * is unavailable (missing or cross-tenant → resolved to absent), any quote mismatch, or zero claims
+ * blocks the entire section version. Never publish a section whose provenance cannot be reproduced.
+ */
+export const gateSectionPublish = (
+  claims: readonly SectionClaim[],
+  snapshotTextById: ReadonlyMap<string, string>,
+): PublishGateResult => {
+  const failures = claims.flatMap((claim, index) => {
+    const snapshotText = snapshotTextById.get(claim.snapshotId);
+    if (snapshotText === undefined) {
+      return [Object.freeze({ index, reason: `snapshot ${claim.snapshotId} unavailable` })];
+    }
+    const check = verifyClaim(claim, snapshotText);
+    return check.ok ? [] : [Object.freeze({ index, reason: check.reason })];
+  });
+  return Object.freeze({
+    publishable: claims.length > 0 && failures.length === 0,
+    failures: Object.freeze(failures),
+  });
+};

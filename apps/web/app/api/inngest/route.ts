@@ -1,27 +1,42 @@
 import { createDbFromEnv, DrizzleFlankStore } from '@flank/db';
-import { createTriageClient } from '@flank/pipeline';
+import { createSynthesisClient, createTriageClient } from '@flank/pipeline';
 import {
+  createNightlySynthesisFunction,
   createScheduledTickFunction,
   inngest,
   type SchedulerRuntime,
+  type SynthesisRuntime,
 } from '@flank/pipeline/inngest';
 import { serve } from 'inngest/next';
 
-// Node runtime: the scheduler tick opens a Postgres pool (postgres-js) and resolves DNS.
+// Node runtime: the crons open a Postgres pool (postgres-js), resolve DNS, and may call the SDK.
 export const runtime = 'nodejs';
 
-// Lazily build the scheduler runtime once and reuse it across invocations. Deferred so neither the
-// DB connection nor DATABASE_URL validation runs at build time.
-let cached: SchedulerRuntime | undefined;
-const buildRuntime = async (): Promise<SchedulerRuntime> => {
-  if (cached === undefined) {
+// Lazily build one DB-backed store + clients, reused across invocations. Deferred so neither the DB
+// connection nor DATABASE_URL validation runs at build time.
+let cachedStore: DrizzleFlankStore | undefined;
+const store = (): DrizzleFlankStore => {
+  if (cachedStore === undefined) {
     const { db } = createDbFromEnv();
-    const { client } = createTriageClient(process.env);
-    cached = { store: new DrizzleFlankStore(db), triage: client };
+    cachedStore = new DrizzleFlankStore(db);
   }
-  return cached;
+  return cachedStore;
 };
 
-const scheduledTick = createScheduledTickFunction(buildRuntime);
+const buildSchedulerRuntime = async (): Promise<SchedulerRuntime> => ({
+  store: store(),
+  triage: createTriageClient(process.env).client,
+});
 
-export const { GET, POST, PUT } = serve({ client: inngest, functions: [scheduledTick] });
+const buildSynthesisRuntime = async (): Promise<SynthesisRuntime> => ({
+  store: store(),
+  client: createSynthesisClient(process.env).client,
+});
+
+const scheduledTick = createScheduledTickFunction(buildSchedulerRuntime);
+const nightlySynthesis = createNightlySynthesisFunction(buildSynthesisRuntime);
+
+export const { GET, POST, PUT } = serve({
+  client: inngest,
+  functions: [scheduledTick, nightlySynthesis],
+});

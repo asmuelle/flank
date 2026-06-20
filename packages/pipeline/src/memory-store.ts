@@ -3,16 +3,21 @@ import {
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type BattlecardSection,
+  type BattlecardSectionKind,
   type Claim,
   type Competitor,
   type CoverageRun,
   type Delta,
   type DeltaState,
+  type DossierSection,
+  type DossierSectionKind,
   type FlankStore,
   type ScheduledDelta,
   type ScheduledSource,
   type Snapshot,
   type Source,
+  type SynthesisCompetitor,
   type Workspace,
 } from '@flank/core';
 
@@ -34,6 +39,10 @@ interface StoreState {
   readonly claims: Map<string, Claim>;
   readonly coverageRuns: Map<string, CoverageRun>;
   readonly sourceHealth: Map<string, SourceHealth>;
+  readonly dossierSections: Map<string, DossierSection>;
+  readonly battlecardSections: Map<string, BattlecardSection>;
+  /** Reserved (surface:competitor:kind:version) keys — mirrors the DB UNIQUE(competitor,kind,version). */
+  readonly sectionVersions: Set<string>;
 }
 
 /**
@@ -56,6 +65,9 @@ export class MemoryFlankStore implements FlankStore {
     claims: new Map(),
     coverageRuns: new Map(),
     sourceHealth: new Map(),
+    dossierSections: new Map(),
+    battlecardSections: new Map(),
+    sectionVersions: new Set(),
   };
 
   private insertUnique<T extends { readonly id: string }>(
@@ -266,6 +278,143 @@ export class MemoryFlankStore implements FlankStore {
     return Object.freeze(entries);
   }
 
+  /** Require that `competitorId` exists and is owned by `workspaceId` — section scoping (Invariant 8). */
+  private requireCompetitorInWorkspace(workspaceId: string, competitorId: string): Competitor {
+    const competitor = this.state.competitors.get(competitorId);
+    if (!competitor) throw new UnknownEntityError(`competitor ${competitorId} does not exist`);
+    if (competitor.workspaceId !== workspaceId) {
+      throw new CrossTenantError(`competitor ${competitorId} is not in workspace ${workspaceId}`);
+    }
+    return competitor;
+  }
+
+  /** Assert the (surface, competitor, kind, version) slot is free; returns the reservation key. */
+  private sectionVersionKey(surface: string, section: DossierSection | BattlecardSection): string {
+    const key = `${surface}:${section.competitorId}:${section.kind}:${section.version}`;
+    if (this.state.sectionVersions.has(key)) {
+      throw new AppendOnlyViolationError(
+        `${surface}_section (${section.competitorId}, ${section.kind}, v${section.version}) already exists`,
+      );
+    }
+    return key;
+  }
+
+  async insertDossierSection(
+    workspaceId: string,
+    section: DossierSection,
+  ): Promise<DossierSection> {
+    this.requireCompetitorInWorkspace(workspaceId, section.competitorId);
+    // Check version free, then id (insertUnique adds the row), then reserve — so a duplicate-id
+    // insert never leaves a phantom version reservation.
+    const key = this.sectionVersionKey('dossier', section);
+    const stored = this.insertUnique(this.state.dossierSections, section, 'dossier_section');
+    this.state.sectionVersions.add(key);
+    return stored;
+  }
+
+  async insertBattlecardSection(
+    workspaceId: string,
+    section: BattlecardSection,
+  ): Promise<BattlecardSection> {
+    this.requireCompetitorInWorkspace(workspaceId, section.competitorId);
+    const key = this.sectionVersionKey('battlecard', section);
+    const stored = this.insertUnique(this.state.battlecardSections, section, 'battlecard_section');
+    this.state.sectionVersions.add(key);
+    return stored;
+  }
+
+  async latestDossierSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: DossierSectionKind,
+  ): Promise<DossierSection | null> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    let head: DossierSection | null = null;
+    for (const section of this.state.dossierSections.values()) {
+      if (section.competitorId !== competitorId || section.kind !== kind) continue;
+      if (head === null || section.version > head.version) head = section;
+    }
+    return head;
+  }
+
+  async latestBattlecardSection(
+    workspaceId: string,
+    competitorId: string,
+    kind: BattlecardSectionKind,
+  ): Promise<BattlecardSection | null> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    let head: BattlecardSection | null = null;
+    for (const section of this.state.battlecardSections.values()) {
+      if (section.competitorId !== competitorId || section.kind !== kind) continue;
+      if (head === null || section.version > head.version) head = section;
+    }
+    return head;
+  }
+
+  async listDossierSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly DossierSection[]> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    return Object.freeze(
+      [...this.state.dossierSections.values()].filter((s) => s.competitorId === competitorId),
+    );
+  }
+
+  async listBattlecardSections(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly BattlecardSection[]> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    return Object.freeze(
+      [...this.state.battlecardSections.values()].filter((s) => s.competitorId === competitorId),
+    );
+  }
+
+  async getClaimsByIds(
+    workspaceId: string,
+    claimIds: readonly string[],
+  ): Promise<readonly Claim[]> {
+    const wanted = new Set(claimIds);
+    const result: Claim[] = [];
+    for (const claim of this.state.claims.values()) {
+      if (!wanted.has(claim.id)) continue;
+      const delta = this.state.deltas.get(claim.deltaId);
+      if (delta && this.workspaceIdForSource(delta.sourceId) === workspaceId) result.push(claim);
+    }
+    return Object.freeze(result);
+  }
+
+  async listConfirmedMaterialDeltasForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Delta[]> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const sourceIds = new Set(
+      [...this.state.sources.values()]
+        .filter((s) => s.competitorId === competitorId)
+        .map((s) => s.id),
+    );
+    return Object.freeze(
+      [...this.state.deltas.values()].filter(
+        (d) =>
+          sourceIds.has(d.sourceId) &&
+          (d.state === 'confirmed' || d.state === 'published') &&
+          d.materiality > 0 &&
+          d.triageClass !== 'noise',
+      ),
+    );
+  }
+
+  async listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]> {
+    const out: SynthesisCompetitor[] = [];
+    for (const competitor of this.state.competitors.values()) {
+      const workspace = this.state.workspaces.get(competitor.workspaceId);
+      if (workspace !== undefined) out.push(Object.freeze({ workspace, competitor }));
+    }
+    return Object.freeze(out);
+  }
+
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {
     const checkpoint = this.captureState();
     try {
@@ -292,6 +441,9 @@ export class MemoryFlankStore implements FlankStore {
       sourceHealth: new Map(
         [...this.state.sourceHealth].map(([id, health]) => [id, { ...health }]),
       ),
+      dossierSections: new Map(this.state.dossierSections),
+      battlecardSections: new Map(this.state.battlecardSections),
+      sectionVersions: new Set(this.state.sectionVersions),
     };
   }
 
@@ -305,6 +457,10 @@ export class MemoryFlankStore implements FlankStore {
     replaceMap(this.state.claims, checkpoint.claims);
     replaceMap(this.state.coverageRuns, checkpoint.coverageRuns);
     replaceMap(this.state.sourceHealth, checkpoint.sourceHealth);
+    replaceMap(this.state.dossierSections, checkpoint.dossierSections);
+    replaceMap(this.state.battlecardSections, checkpoint.battlecardSections);
+    this.state.sectionVersions.clear();
+    for (const key of checkpoint.sectionVersions) this.state.sectionVersions.add(key);
   }
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CogsModelError,
+  estimateSynthesisCostMicros,
   estimateTokens,
   estimateTriageCostMicros,
   evaluateBudget,
@@ -91,6 +92,17 @@ describe('estimateTriageCostMicros (pre-call budget projection)', () => {
     expect(Number.isInteger(micros)).toBe(true);
     expect(micros).toBeGreaterThan(0);
     expect(micros).toBeLessThan(10_000); // « 1 cent
+  });
+});
+
+describe('estimateSynthesisCostMicros (Sonnet Batch projection)', () => {
+  it('is zero for no sections and grows with the section count', () => {
+    expect(estimateSynthesisCostMicros(0)).toBe(0);
+    const one = estimateSynthesisCostMicros(1);
+    const three = estimateSynthesisCostMicros(3);
+    expect(one).toBeGreaterThan(0);
+    expect(three).toBeGreaterThan(one);
+    expect(Number.isInteger(three)).toBe(true);
   });
 });
 

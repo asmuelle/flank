@@ -1,5 +1,7 @@
 import {
+  BATTLECARD_SECTION_KINDS,
   DELTA_STATES,
+  DOSSIER_SECTION_KINDS,
   LEGAL_STATUSES,
   PLAN_TIERS,
   SOURCE_ADAPTERS,
@@ -28,19 +30,8 @@ export const triageClassEnum = pgEnum('triage_class', TRIAGE_CLASSES);
 export const deltaStateEnum = pgEnum('delta_state', DELTA_STATES);
 export const alertChannelEnum = pgEnum('alert_channel', ['slack', 'email', 'crm']);
 export const alertStatusEnum = pgEnum('alert_status', ['queued', 'delivered', 'failed']);
-export const sectionKindEnum = pgEnum('dossier_section_kind', [
-  'overview',
-  'pricing',
-  'product',
-  'gtm',
-  'team',
-]);
-export const battlecardKindEnum = pgEnum('battlecard_section_kind', [
-  'why_we_win',
-  'landmines',
-  'pricing_counter',
-  'objections',
-]);
+export const sectionKindEnum = pgEnum('dossier_section_kind', DOSSIER_SECTION_KINDS);
+export const battlecardKindEnum = pgEnum('battlecard_section_kind', BATTLECARD_SECTION_KINDS);
 
 export const workspaces = pgTable('workspace', {
   id: text('id').primaryKey(),
