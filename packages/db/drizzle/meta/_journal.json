@@ -8,6 +8,20 @@
       "when": 1781122354118,
       "tag": "0000_polite_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781953156963,
+      "tag": "0001_denormalize_workspace_and_section_uniques",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781953199197,
+      "tag": "0002_append_only_guards",
+      "breakpoints": true
     }
   ]
 }

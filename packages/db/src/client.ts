@@ -35,7 +35,9 @@ export interface CreateDbOptions {
  */
 export const createDb = (databaseUrl: string, options: CreateDbOptions = {}): DbHandle => {
   const url = DatabaseUrlSchema.parse(databaseUrl);
-  const client = postgres(url, { max: options.max ?? 10 });
+  // Suppress postgres-js's default NOTICE logging (e.g. TRUNCATE ... CASCADE) — these are not
+  // actionable in app context and only clutter logs.
+  const client = postgres(url, { max: options.max ?? 10, onnotice: () => {} });
   const db = drizzle(client, { schema });
   return {
     db,

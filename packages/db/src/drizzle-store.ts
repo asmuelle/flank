@@ -13,7 +13,7 @@ import {
   type Source,
   type Workspace,
 } from '@flank/core';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
   claims,
@@ -169,19 +169,14 @@ export class DrizzleFlankStore implements FlankStore {
 
   /** Require that `deltaId` exists and is owned by `workspaceId`; return the current delta. */
   private async requireDeltaInWorkspace(workspaceId: string, deltaId: string): Promise<Delta> {
-    const rows = await this.db
-      .select({ delta: deltas, ownerWorkspaceId: competitors.workspaceId })
-      .from(deltas)
-      .innerJoin(sources, eq(deltas.sourceId, sources.id))
-      .innerJoin(competitors, eq(sources.competitorId, competitors.id))
-      .where(eq(deltas.id, deltaId))
-      .limit(1);
+    // Single-table lookup thanks to the denormalized delta.workspace_id (no source/competitor join).
+    const rows = await this.db.select().from(deltas).where(eq(deltas.id, deltaId)).limit(1);
     const row = rows[0];
     if (row === undefined) throw new UnknownEntityError(`delta ${deltaId} does not exist`);
-    if (row.ownerWorkspaceId !== workspaceId) {
+    if (row.workspaceId !== workspaceId) {
       throw new CrossTenantError(`delta ${deltaId} is not in workspace ${workspaceId}`);
     }
-    return toDelta(row.delta);
+    return toDelta(row);
   }
 
   async seedWorkspace(workspace: Workspace): Promise<Workspace> {
@@ -258,6 +253,7 @@ export class DrizzleFlankStore implements FlankStore {
           .values({
             id: snapshot.id,
             sourceId: snapshot.sourceId,
+            workspaceId,
             contentHash: snapshot.contentHash,
             normalizedText: snapshot.normalizedText,
             fetchedAt: snapshot.fetchedAt,
@@ -291,6 +287,7 @@ export class DrizzleFlankStore implements FlankStore {
           .values({
             id: delta.id,
             sourceId: delta.sourceId,
+            workspaceId,
             fromSnapshotId: delta.fromSnapshotId,
             toSnapshotId: delta.toSnapshotId,
             changedSpans: delta.changedSpans,
@@ -336,6 +333,7 @@ export class DrizzleFlankStore implements FlankStore {
           .values({
             id: claim.id,
             deltaId: claim.deltaId,
+            workspaceId,
             snapshotId: claim.snapshotId,
             quoteText: claim.quoteText,
             charStart: claim.charStart,
@@ -382,25 +380,17 @@ export class DrizzleFlankStore implements FlankStore {
   }
 
   async listDeltas(workspaceId: string): Promise<readonly Delta[]> {
-    const rows = await this.db
-      .select({ delta: deltas })
-      .from(deltas)
-      .innerJoin(sources, eq(deltas.sourceId, sources.id))
-      .innerJoin(competitors, eq(sources.competitorId, competitors.id))
-      .where(eq(competitors.workspaceId, workspaceId));
-    return Object.freeze(rows.map((row) => toDelta(row.delta)));
+    // Single-table scope via the denormalized workspace_id (Invariant 8) — no joins.
+    const rows = await this.db.select().from(deltas).where(eq(deltas.workspaceId, workspaceId));
+    return Object.freeze(rows.map(toDelta));
   }
 
   async listClaimsForDelta(workspaceId: string, deltaId: string): Promise<readonly Claim[]> {
-    const owner = await this.db
-      .select({ ownerWorkspaceId: competitors.workspaceId })
-      .from(deltas)
-      .innerJoin(sources, eq(deltas.sourceId, sources.id))
-      .innerJoin(competitors, eq(sources.competitorId, competitors.id))
-      .where(eq(deltas.id, deltaId))
-      .limit(1);
-    if (owner[0]?.ownerWorkspaceId !== workspaceId) return Object.freeze([]);
-    const rows = await this.db.select().from(claims).where(eq(claims.deltaId, deltaId));
+    // Scope on claim.workspace_id directly; a foreign-tenant or unknown delta yields no rows.
+    const rows = await this.db
+      .select()
+      .from(claims)
+      .where(and(eq(claims.deltaId, deltaId), eq(claims.workspaceId, workspaceId)));
     return Object.freeze(rows.map(toClaim));
   }
 

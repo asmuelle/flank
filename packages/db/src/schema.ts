@@ -7,7 +7,17 @@ import {
   TRIAGE_CLASSES,
   type Span,
 } from '@flank/core';
-import { integer, jsonb, pgEnum, pgTable, real, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  unique,
+} from 'drizzle-orm/pg-core';
 
 // Enums mirror the canonical value sets in @flank/core — one source of truth.
 export const planTierEnum = pgEnum('plan_tier', PLAN_TIERS);
@@ -70,18 +80,26 @@ export const sources = pgTable('source', {
 });
 
 /** Append-only (Invariant 5): rows are inserted, never updated or deleted. */
-export const snapshots = pgTable('snapshot', {
-  id: text('id').primaryKey(),
-  sourceId: text('source_id')
-    .notNull()
-    .references(() => sources.id),
-  contentHash: text('content_hash').notNull(),
-  s3Key: text('s3_key'),
-  normalizedText: text('normalized_text').notNull(),
-  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull(),
-  vantage: text('vantage'),
-  httpStatus: integer('http_status').notNull(),
-});
+export const snapshots = pgTable(
+  'snapshot',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => sources.id),
+    // Denormalized tenant key (Invariant 8): isolation is a single WHERE, not a 3-hop join.
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    contentHash: text('content_hash').notNull(),
+    s3Key: text('s3_key'),
+    normalizedText: text('normalized_text').notNull(),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull(),
+    vantage: text('vantage'),
+    httpStatus: integer('http_status').notNull(),
+  },
+  (table) => [index('snapshot_source_fetched_idx').on(table.sourceId, table.fetchedAt)],
+);
 
 /** Append-only (Invariant 5); only `state` advances via the delta state machine. */
 export const deltas = pgTable('delta', {
@@ -89,6 +107,10 @@ export const deltas = pgTable('delta', {
   sourceId: text('source_id')
     .notNull()
     .references(() => sources.id),
+  // Denormalized tenant key (Invariant 8): scoping reads without a source/competitor join.
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
   fromSnapshotId: text('from_snapshot_id').references(() => snapshots.id),
   toSnapshotId: text('to_snapshot_id')
     .notNull()
@@ -108,6 +130,10 @@ export const claims = pgTable('claim', {
   deltaId: text('delta_id')
     .notNull()
     .references(() => deltas.id),
+  // Denormalized tenant key (Invariant 8).
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
   snapshotId: text('snapshot_id')
     .notNull()
     .references(() => snapshots.id),
@@ -119,35 +145,56 @@ export const claims = pgTable('claim', {
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
 });
 
-/** Append-only version chain via supersedes_id (Invariant 5). */
-export const dossierSections = pgTable('dossier_section', {
-  id: text('id').primaryKey(),
-  competitorId: text('competitor_id')
-    .notNull()
-    .references(() => competitors.id),
-  kind: sectionKindEnum('kind').notNull(),
-  version: integer('version').notNull(),
-  contentMd: text('content_md').notNull(),
-  claimIds: jsonb('claim_ids').$type<readonly string[]>().notNull().default([]),
-  model: text('model'),
-  batchId: text('batch_id'),
-  supersedesId: text('supersedes_id'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+/** Append-only version chain via supersedes_id (Invariant 5); one row per (competitor, kind, version). */
+export const dossierSections = pgTable(
+  'dossier_section',
+  {
+    id: text('id').primaryKey(),
+    competitorId: text('competitor_id')
+      .notNull()
+      .references(() => competitors.id),
+    kind: sectionKindEnum('kind').notNull(),
+    version: integer('version').notNull(),
+    contentMd: text('content_md').notNull(),
+    claimIds: jsonb('claim_ids').$type<readonly string[]>().notNull().default([]),
+    model: text('model'),
+    batchId: text('batch_id'),
+    supersedesId: text('supersedes_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Structural guard against forked/duplicate versions in the chain (Invariant 5).
+  (table) => [
+    unique('dossier_section_competitor_kind_version_uq').on(
+      table.competitorId,
+      table.kind,
+      table.version,
+    ),
+  ],
+);
 
-/** Append-only version chain via supersedes_id (Invariant 5). */
-export const battlecardSections = pgTable('battlecard_section', {
-  id: text('id').primaryKey(),
-  competitorId: text('competitor_id')
-    .notNull()
-    .references(() => competitors.id),
-  kind: battlecardKindEnum('kind').notNull(),
-  version: integer('version').notNull(),
-  contentMd: text('content_md').notNull(),
-  claimIds: jsonb('claim_ids').$type<readonly string[]>().notNull().default([]),
-  supersedesId: text('supersedes_id'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+/** Append-only version chain via supersedes_id (Invariant 5); one row per (competitor, kind, version). */
+export const battlecardSections = pgTable(
+  'battlecard_section',
+  {
+    id: text('id').primaryKey(),
+    competitorId: text('competitor_id')
+      .notNull()
+      .references(() => competitors.id),
+    kind: battlecardKindEnum('kind').notNull(),
+    version: integer('version').notNull(),
+    contentMd: text('content_md').notNull(),
+    claimIds: jsonb('claim_ids').$type<readonly string[]>().notNull().default([]),
+    supersedesId: text('supersedes_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('battlecard_section_competitor_kind_version_uq').on(
+      table.competitorId,
+      table.kind,
+      table.version,
+    ),
+  ],
+);
 
 export const alerts = pgTable('alert', {
   id: text('id').primaryKey(),
