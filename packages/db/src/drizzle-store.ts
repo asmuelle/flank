@@ -9,11 +9,13 @@ import {
   type Delta,
   type DeltaState,
   type FlankStore,
+  type ScheduledDelta,
+  type ScheduledSource,
   type Snapshot,
   type Source,
   type Workspace,
 } from '@flank/core';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
   claims,
@@ -409,6 +411,56 @@ export class DrizzleFlankStore implements FlankStore {
       .from(coverageRuns)
       .where(eq(coverageRuns.workspaceId, workspaceId));
     return Object.freeze(rows.map(toCoverageRun));
+  }
+
+  async listSourcesForScheduling(): Promise<readonly ScheduledSource[]> {
+    const rows = await this.db
+      .select({ source: sources, workspace: workspaces })
+      .from(sources)
+      .innerJoin(competitors, eq(sources.competitorId, competitors.id))
+      .innerJoin(workspaces, eq(competitors.workspaceId, workspaces.id));
+    return Object.freeze(
+      rows.map((row) =>
+        Object.freeze({
+          workspace: toWorkspace(row.workspace),
+          source: toSource(row.source),
+          lastFetchedAt: row.source.lastFetchedAt,
+          consecutiveFailures: row.source.consecutiveFailures,
+        }),
+      ),
+    );
+  }
+
+  async markSourceFetched(sourceId: string, fetchedAt: Date): Promise<void> {
+    await this.db
+      .update(sources)
+      .set({ lastFetchedAt: fetchedAt, consecutiveFailures: 0 })
+      .where(eq(sources.id, sourceId));
+  }
+
+  async markSourceFailed(sourceId: string): Promise<void> {
+    await this.db
+      .update(sources)
+      .set({ consecutiveFailures: sql`${sources.consecutiveFailures} + 1` })
+      .where(eq(sources.id, sourceId));
+  }
+
+  async listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]> {
+    const rows = await this.db
+      .select({ delta: deltas, source: sources, workspace: workspaces })
+      .from(deltas)
+      .innerJoin(sources, eq(deltas.sourceId, sources.id))
+      .innerJoin(workspaces, eq(deltas.workspaceId, workspaces.id))
+      .where(and(eq(deltas.state, 'pending'), eq(deltas.triageClass, 'pricing_change')));
+    return Object.freeze(
+      rows.map((row) =>
+        Object.freeze({
+          workspace: toWorkspace(row.workspace),
+          source: toSource(row.source),
+          delta: toDelta(row.delta),
+        }),
+      ),
+    );
   }
 
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {

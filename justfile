@@ -19,9 +19,13 @@ setup: _bootstrapped
     corepack enable
     pnpm install
 
-# Run dev servers (Next.js web + Inngest dev/workers)
+# Run the Next.js dev server (serves the Inngest functions at /api/inngest)
 dev: _bootstrapped
     pnpm dev
+
+# Run the Inngest dev server against the local app (run alongside `just dev`)
+inngest-dev: _bootstrapped
+    npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 
 # Start local Postgres (pgvector) via docker compose
 db-up:

@@ -9,10 +9,17 @@ import {
   type Delta,
   type DeltaState,
   type FlankStore,
+  type ScheduledDelta,
+  type ScheduledSource,
   type Snapshot,
   type Source,
   type Workspace,
 } from '@flank/core';
+
+interface SourceHealth {
+  lastFetchedAt: Date | null;
+  consecutiveFailures: number;
+}
 
 const freezeDeep = <T extends object>(value: T): T => Object.freeze({ ...value });
 
@@ -26,6 +33,7 @@ interface StoreState {
   readonly deltas: Map<string, Delta>;
   readonly claims: Map<string, Claim>;
   readonly coverageRuns: Map<string, CoverageRun>;
+  readonly sourceHealth: Map<string, SourceHealth>;
 }
 
 /**
@@ -47,6 +55,7 @@ export class MemoryFlankStore implements FlankStore {
     deltas: new Map(),
     claims: new Map(),
     coverageRuns: new Map(),
+    sourceHealth: new Map(),
   };
 
   private insertUnique<T extends { readonly id: string }>(
@@ -107,7 +116,9 @@ export class MemoryFlankStore implements FlankStore {
     if (!this.state.competitors.has(source.competitorId)) {
       throw new UnknownEntityError(`competitor ${source.competitorId} does not exist`);
     }
-    return this.insertUnique(this.state.sources, source, 'source');
+    const stored = this.insertUnique(this.state.sources, source, 'source');
+    this.state.sourceHealth.set(source.id, { lastFetchedAt: null, consecutiveFailures: 0 });
+    return stored;
   }
 
   async insertSnapshot(workspaceId: string, snapshot: Snapshot): Promise<Snapshot> {
@@ -190,6 +201,61 @@ export class MemoryFlankStore implements FlankStore {
     );
   }
 
+  private scheduledSourceFor(source: Source): ScheduledSource | null {
+    const competitor = this.state.competitors.get(source.competitorId);
+    const workspace = competitor ? this.state.workspaces.get(competitor.workspaceId) : undefined;
+    if (workspace === undefined) return null;
+    const health = this.state.sourceHealth.get(source.id) ?? {
+      lastFetchedAt: null,
+      consecutiveFailures: 0,
+    };
+    return Object.freeze({
+      workspace,
+      source,
+      lastFetchedAt: health.lastFetchedAt,
+      consecutiveFailures: health.consecutiveFailures,
+    });
+  }
+
+  async listSourcesForScheduling(): Promise<readonly ScheduledSource[]> {
+    return Object.freeze(
+      [...this.state.sources.values()]
+        .map((source) => this.scheduledSourceFor(source))
+        .filter((entry): entry is ScheduledSource => entry !== null),
+    );
+  }
+
+  async markSourceFetched(sourceId: string, fetchedAt: Date): Promise<void> {
+    if (!this.state.sources.has(sourceId)) {
+      throw new UnknownEntityError(`source ${sourceId} does not exist`);
+    }
+    this.state.sourceHealth.set(sourceId, { lastFetchedAt: fetchedAt, consecutiveFailures: 0 });
+  }
+
+  async markSourceFailed(sourceId: string): Promise<void> {
+    const current = this.state.sourceHealth.get(sourceId);
+    if (!this.state.sources.has(sourceId) || current === undefined) {
+      throw new UnknownEntityError(`source ${sourceId} does not exist`);
+    }
+    this.state.sourceHealth.set(sourceId, {
+      lastFetchedAt: current.lastFetchedAt,
+      consecutiveFailures: current.consecutiveFailures + 1,
+    });
+  }
+
+  async listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]> {
+    const entries: ScheduledDelta[] = [];
+    for (const delta of this.state.deltas.values()) {
+      if (delta.state !== 'pending' || delta.triageClass !== 'pricing_change') continue;
+      const source = this.state.sources.get(delta.sourceId);
+      const competitor = source ? this.state.competitors.get(source.competitorId) : undefined;
+      const workspace = competitor ? this.state.workspaces.get(competitor.workspaceId) : undefined;
+      if (source === undefined || workspace === undefined) continue;
+      entries.push(Object.freeze({ workspace, source, delta }));
+    }
+    return Object.freeze(entries);
+  }
+
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {
     const checkpoint = this.captureState();
     try {
@@ -213,6 +279,9 @@ export class MemoryFlankStore implements FlankStore {
       deltas: new Map(this.state.deltas),
       claims: new Map(this.state.claims),
       coverageRuns: new Map(this.state.coverageRuns),
+      sourceHealth: new Map(
+        [...this.state.sourceHealth].map(([id, health]) => [id, { ...health }]),
+      ),
     };
   }
 
@@ -225,6 +294,7 @@ export class MemoryFlankStore implements FlankStore {
     replaceMap(this.state.deltas, checkpoint.deltas);
     replaceMap(this.state.claims, checkpoint.claims);
     replaceMap(this.state.coverageRuns, checkpoint.coverageRuns);
+    replaceMap(this.state.sourceHealth, checkpoint.sourceHealth);
   }
 }
 

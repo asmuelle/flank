@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./store-contract": "./src/store-contract.ts",
+    "./inngest": "./src/inngest.ts",
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -14,6 +15,8 @@
   },
   "dependencies": {
     "@flank/core": "workspace:*",
+    "cron-parser": "^5.0.4",
+    "inngest": "^3.44.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {

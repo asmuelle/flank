@@ -5,6 +5,7 @@ export * from './ingest';
 export * from './http-fetcher';
 export * from './fetch-ingest';
 export * from './pricing-confirmation';
+export * from './scheduler';
 export * from './alerts';
 export * from './fixture-run';
 export * from './fixture-files';

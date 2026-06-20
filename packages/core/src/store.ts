@@ -107,6 +107,21 @@ export const assertDeltaTransition = (
  * {@link FlankStore.withTransaction} so a mid-write failure can never leave an orphan snapshot or a
  * delta with partial claims (which would violate Invariant 1).
  */
+/** A source plus the tenant context and health the scheduler needs to decide and process a fetch. */
+export interface ScheduledSource {
+  readonly workspace: Workspace;
+  readonly source: Source;
+  readonly lastFetchedAt: Date | null;
+  readonly consecutiveFailures: number;
+}
+
+/** A pending pricing delta plus the context its confirmation re-fetch needs. */
+export interface ScheduledDelta {
+  readonly workspace: Workspace;
+  readonly source: Source;
+  readonly delta: Delta;
+}
+
 export interface FlankStore {
   seedWorkspace(workspace: Workspace): Promise<Workspace>;
   seedCompetitor(competitor: Competitor): Promise<Competitor>;
@@ -132,6 +147,19 @@ export interface FlankStore {
   listDeltas(workspaceId: string): Promise<readonly Delta[]>;
   listClaimsForDelta(workspaceId: string, deltaId: string): Promise<readonly Claim[]>;
   listCoverageRuns(workspaceId: string): Promise<readonly CoverageRun[]>;
+
+  // --- Scheduler surface ---
+  // Deliberately cross-tenant: the background worker processes every workspace's sources. These are
+  // the only methods that span tenants, and they are never reachable from a request-scoped path.
+
+  /** Every source with the context the scheduler needs (tenant + last-fetch + failure streak). */
+  listSourcesForScheduling(): Promise<readonly ScheduledSource[]>;
+  /** Record a successful check: stamp last_fetched_at and reset the consecutive-failure streak. */
+  markSourceFetched(sourceId: string, fetchedAt: Date): Promise<void>;
+  /** Record a failed check: increment the consecutive-failure streak (the scheduler pauses on it). */
+  markSourceFailed(sourceId: string): Promise<void>;
+  /** Pending pricing deltas awaiting the confirmation firewall, with re-fetch context. */
+  listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]>;
 
   /**
    * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}

@@ -292,6 +292,44 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
       });
     });
 
+    describe('scheduler surface (cross-tenant)', () => {
+      it('lists every tenant’s sources with health and records fetched/failed', async () => {
+        const initial = await store.listSourcesForScheduling();
+        expect(initial.map((s) => s.source.id).sort()).toEqual(['src-a', 'src-b']);
+        expect(initial.every((s) => s.lastFetchedAt === null && s.consecutiveFailures === 0)).toBe(
+          true,
+        );
+
+        await store.markSourceFailed('src-a');
+        await store.markSourceFailed('src-a');
+        await store.markSourceFetched('src-b', AT);
+
+        const after = await store.listSourcesForScheduling();
+        const a = after.find((s) => s.source.id === 'src-a');
+        const b = after.find((s) => s.source.id === 'src-b');
+        expect(a?.consecutiveFailures).toBe(2);
+        expect(b?.consecutiveFailures).toBe(0);
+        expect(b?.lastFetchedAt?.getTime()).toBe(AT.getTime());
+      });
+
+      it('marking a source fetched resets its failure streak', async () => {
+        await store.markSourceFailed('src-a');
+        await store.markSourceFetched('src-a', AT);
+        const a = (await store.listSourcesForScheduling()).find((s) => s.source.id === 'src-a');
+        expect(a?.consecutiveFailures).toBe(0);
+      });
+
+      it('lists only pending pricing deltas across tenants, with context', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-price', { triageClass: 'pricing_change' });
+        await seedDelta(WS_A.id, SRC_A.id, 'd-feat', { triageClass: 'feature_launch' });
+
+        const pending = await store.listPendingPricingDeltasForScheduling();
+        expect(pending.map((p) => p.delta.id)).toEqual(['d-price']);
+        expect(pending[0]?.workspace.id).toBe(WS_A.id);
+        expect(pending[0]?.source.id).toBe(SRC_A.id);
+      });
+    });
+
     describe('withTransaction is atomic', () => {
       it('rolls back every write when the transaction throws', async () => {
         await expect(
