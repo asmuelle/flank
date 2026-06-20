@@ -118,4 +118,30 @@ describe('runScheduledTick', () => {
     );
     expect(pricing?.state).toBe('confirmed');
   });
+
+  it('pauses an over-budget workspace (Invariant 6) and skips its model call', async () => {
+    const { store, deps } = await buildStore();
+    const source = await seedSource(store, 'src-1');
+    const ctx = { workspace: { id: 'ws-1', name: 'Test', planTier: 'starter' as const }, source };
+    await ingestFetch(ctx, PRICING_V1, new Date('2026-06-08T06:00:00Z'), deps); // baseline, no triage
+    // Push month-to-date spend to the starter cap ($10).
+    await store.insertCoverageRun({
+      id: 'seed-cost',
+      workspaceId: 'ws-1',
+      period: '2026-06-01',
+      sourcesChecked: 0,
+      fetchFailures: 0,
+      deltasFound: 0,
+      materialDeltas: 0,
+      llmCalls: 0,
+      llmCostMicros: 10_000_000,
+      createdAt: NOW,
+    });
+
+    const report = await runScheduledTick(deps, htmlFetcher(PRICING_V2), NOW);
+
+    expect(report.pausedOverBudget).toBe(1);
+    expect(report.fetched).toBe(0);
+    expect(await store.listDeltas('ws-1')).toHaveLength(0); // model skipped, no delta written
+  });
 });

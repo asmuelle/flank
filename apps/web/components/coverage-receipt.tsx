@@ -1,3 +1,4 @@
+import { formatMicrosAsCents } from '@flank/core';
 import type { CoverageView } from '../lib/brief';
 
 /**
@@ -17,7 +18,7 @@ export function CoverageReceipt({
     ['Material', String(coverage.materialDeltas)],
     ['Fetch failures', String(coverage.fetchFailures)],
     ['Model calls', String(coverage.llmCalls)],
-    ['Metered cost', `${coverage.llmCostCents.toFixed(4)}¢`],
+    ['Metered cost', formatMicrosAsCents(coverage.llmCostMicros)],
   ];
   return (
     <aside className="receipt" aria-labelledby="receipt-heading">

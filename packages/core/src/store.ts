@@ -147,6 +147,12 @@ export interface FlankStore {
   listDeltas(workspaceId: string): Promise<readonly Delta[]>;
   listClaimsForDelta(workspaceId: string, deltaId: string): Promise<readonly Claim[]>;
   listCoverageRuns(workspaceId: string): Promise<readonly CoverageRun[]>;
+  /**
+   * Sum of metered LLM spend (micro-USD) for a workspace across coverage runs whose period starts
+   * with `periodPrefix` (e.g. 'YYYY-MM' for month-to-date). The budget gate's gating number;
+   * read failures propagate so the gate fails closed.
+   */
+  monthToDateCostMicros(workspaceId: string, periodPrefix: string): Promise<number>;
 
   // --- Scheduler surface ---
   // Deliberately cross-tenant: the background worker processes every workspace's sources. These are

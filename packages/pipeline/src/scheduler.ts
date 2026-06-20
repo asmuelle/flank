@@ -30,6 +30,7 @@ export interface TickReport {
   readonly fetched: number;
   readonly fetchFailures: number;
   readonly skippedPaused: number;
+  readonly pausedOverBudget: number;
   readonly confirmationsRun: number;
   readonly confirmed: number;
   readonly dismissed: number;
@@ -57,6 +58,7 @@ export const runScheduledTick = async (
   let fetched = 0;
   let fetchFailures = 0;
   let skippedPaused = 0;
+  let pausedOverBudget = 0;
   let errors = 0;
 
   const scheduled = await deps.store.listSourcesForScheduling();
@@ -77,6 +79,10 @@ export const runScheduledTick = async (
       if (outcome.kind === 'fetch_failed') {
         fetchFailures += 1;
         await deps.store.markSourceFailed(entry.source.id);
+      } else if (outcome.kind === 'skipped_over_budget') {
+        // Invariant 6: the workspace is over budget — neither a success nor a failure. Leave health
+        // untouched so it retries next tick once the month rolls over or spend is reviewed.
+        pausedOverBudget += 1;
       } else {
         // baseline / delta / unchanged / skipped_blocked are all a completed check.
         fetched += 1;
@@ -114,6 +120,7 @@ export const runScheduledTick = async (
     fetched,
     fetchFailures,
     skippedPaused,
+    pausedOverBudget,
     confirmationsRun,
     confirmed,
     dismissed,

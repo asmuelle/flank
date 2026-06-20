@@ -92,7 +92,11 @@ const claimOn = (deltaId: string, id: string, snapshotId: string): Claim => ({
   verifiedAt: null,
 });
 
-const coverageOn = (workspaceId: string, id: string): CoverageRun => ({
+const coverageOn = (
+  workspaceId: string,
+  id: string,
+  over: Partial<CoverageRun> = {},
+): CoverageRun => ({
   id,
   workspaceId,
   period: '2026-06-08',
@@ -101,8 +105,9 @@ const coverageOn = (workspaceId: string, id: string): CoverageRun => ({
   deltasFound: 1,
   materialDeltas: 1,
   llmCalls: 1,
-  llmCostCents: 0,
+  llmCostMicros: 0,
   createdAt: AT,
+  ...over,
 });
 
 export const runFlankStoreContract = (label: string, makeStore: () => FlankStore): void => {
@@ -327,6 +332,27 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         expect(pending.map((p) => p.delta.id)).toEqual(['d-price']);
         expect(pending[0]?.workspace.id).toBe(WS_A.id);
         expect(pending[0]?.source.id).toBe(SRC_A.id);
+      });
+    });
+
+    describe('monthToDateCostMicros (budget gate sum)', () => {
+      it('sums only the workspace and the period prefix', async () => {
+        await store.insertCoverageRun(
+          coverageOn(WS_A.id, 'cov-1', { period: '2026-06-08', llmCostMicros: 300 }),
+        );
+        await store.insertCoverageRun(
+          coverageOn(WS_A.id, 'cov-2', { period: '2026-06-20', llmCostMicros: 700 }),
+        );
+        await store.insertCoverageRun(
+          coverageOn(WS_A.id, 'cov-may', { period: '2026-05-31', llmCostMicros: 9999 }),
+        );
+        await store.insertCoverageRun(
+          coverageOn(WS_B.id, 'cov-b', { period: '2026-06-08', llmCostMicros: 5000 }),
+        );
+
+        expect(await store.monthToDateCostMicros(WS_A.id, '2026-06')).toBe(1000);
+        expect(await store.monthToDateCostMicros(WS_B.id, '2026-06')).toBe(5000);
+        expect(await store.monthToDateCostMicros(WS_A.id, '2026-07')).toBe(0);
       });
     });
 

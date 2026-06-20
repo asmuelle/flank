@@ -104,7 +104,7 @@ describe('M1 fixture scenario: one competitor, three sources, real diffs', () =>
 
     const triageRuns = result.coverageRuns.filter((run) => run.llmCalls > 0);
     expect(triageRuns).toHaveLength(3);
-    expect(triageRuns.every((run) => run.llmCostCents > 0)).toBe(true);
+    expect(triageRuns.every((run) => run.llmCostMicros > 0)).toBe(true);
   });
 
   it('uses the deterministic mock even when ANTHROPIC_API_KEY is present (no live calls in tests)', async () => {

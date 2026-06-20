@@ -121,7 +121,8 @@ export interface CoverageRun {
   readonly deltasFound: number;
   readonly materialDeltas: number;
   readonly llmCalls: number;
-  readonly llmCostCents: number;
+  /** Metered LLM spend in exact integer micro-USD (USD × 1e6) — never float (Invariant 6). */
+  readonly llmCostMicros: number;
   readonly createdAt: Date;
 }
 

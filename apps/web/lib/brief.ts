@@ -37,7 +37,7 @@ export interface CoverageView {
   readonly materialDeltas: number;
   readonly fetchFailures: number;
   readonly llmCalls: number;
-  readonly llmCostCents: number;
+  readonly llmCostMicros: number;
 }
 
 export interface BriefModel {
@@ -90,7 +90,7 @@ export const toBriefModel = (scenario: ScenarioResult): BriefModel => {
       materialDeltas: acc.materialDeltas + run.materialDeltas,
       fetchFailures: acc.fetchFailures + run.fetchFailures,
       llmCalls: acc.llmCalls + run.llmCalls,
-      llmCostCents: acc.llmCostCents + run.llmCostCents,
+      llmCostMicros: acc.llmCostMicros + run.llmCostMicros,
     }),
     {
       fetches: 0,
@@ -98,7 +98,7 @@ export const toBriefModel = (scenario: ScenarioResult): BriefModel => {
       materialDeltas: 0,
       fetchFailures: 0,
       llmCalls: 0,
-      llmCostCents: 0,
+      llmCostMicros: 0,
     },
   );
 

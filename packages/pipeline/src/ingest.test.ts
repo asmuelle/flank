@@ -177,4 +177,118 @@ describe('ingestFetch', () => {
     expect(runs[1].deltasFound).toBe(1);
     expect(runs[1].materialDeltas).toBe(0);
   });
+
+  it('skips the model when the workspace is over its monthly COGS budget (Invariant 6)', async () => {
+    const source = await harness.makeSource();
+    await ingestFetch(
+      { workspace: harness.workspace, source },
+      PRICING_V1,
+      FETCHED_AT,
+      harness.deps,
+    );
+    // Push month-to-date spend to the starter-tier cap ($10) for the current month.
+    await harness.store.insertCoverageRun({
+      id: 'seed-cost',
+      workspaceId: 'ws-1',
+      period: '2026-06-01',
+      sourcesChecked: 0,
+      fetchFailures: 0,
+      deltasFound: 0,
+      materialDeltas: 0,
+      llmCalls: 0,
+      llmCostMicros: 10_000_000,
+      createdAt: FETCHED_AT,
+    });
+    const callsBefore = harness.triage.calls;
+
+    const outcome = await ingestFetch(
+      { workspace: harness.workspace, source },
+      PRICING_V2,
+      LATER,
+      harness.deps,
+    );
+
+    expect(outcome.kind).toBe('skipped_over_budget');
+    expect(harness.triage.calls).toBe(callsBefore); // the model was never called
+  });
+
+  it('does not absorb the change when over budget — a later in-budget tick still yields the delta', async () => {
+    const source = await harness.makeSource();
+    await ingestFetch(
+      { workspace: harness.workspace, source },
+      PRICING_V1,
+      FETCHED_AT,
+      harness.deps,
+    );
+    await harness.store.insertCoverageRun({
+      id: 'seed-cost',
+      workspaceId: 'ws-1',
+      period: '2026-06-01',
+      sourcesChecked: 0,
+      fetchFailures: 0,
+      deltasFound: 0,
+      materialDeltas: 0,
+      llmCalls: 0,
+      llmCostMicros: 10_000_000,
+      createdAt: FETCHED_AT,
+    });
+
+    const over = await ingestFetch(
+      { workspace: harness.workspace, source },
+      PRICING_V2,
+      LATER,
+      harness.deps,
+    );
+    expect(over.kind).toBe('skipped_over_budget');
+    // The V2 snapshot was NOT persisted — the baseline is still V1, so the change isn't lost.
+    const latest = await harness.store.latestSnapshot('ws-1', source.id);
+    expect(latest?.normalizedText).toContain('$59');
+    expect(await harness.store.listDeltas('ws-1')).toHaveLength(0);
+
+    // Next month the budget is fresh; the same V2 change is finally triaged into a delta.
+    const nextMonth = new Date('2026-07-08T06:00:00Z');
+    const after = await ingestFetch(
+      { workspace: harness.workspace, source },
+      PRICING_V2,
+      nextMonth,
+      harness.deps,
+    );
+    expect(after.kind).toBe('delta');
+    expect(await harness.store.listDeltas('ws-1')).toHaveLength(1);
+  });
+
+  it('fails closed when the budget read fails — no model call, nothing persisted', async () => {
+    const store = new (class extends MemoryFlankStore {
+      override async monthToDateCostMicros(): Promise<number> {
+        throw new Error('budget read down');
+      }
+    })();
+    const workspace = await store.seedWorkspace({ id: 'ws-1', name: 'Test', planTier: 'starter' });
+    await store.seedCompetitor({
+      id: 'comp-1',
+      workspaceId: 'ws-1',
+      name: 'Rival',
+      primaryDomain: 'rival.example',
+    });
+    const source = await store.seedSource(
+      parseSourceConfig({
+        id: 'src-1',
+        competitorId: 'comp-1',
+        type: 'pricing',
+        url: 'https://rival.example/pricing',
+        adapter: 'html',
+        cadence: '0 6 * * *',
+        legalStatus: 'open',
+      }),
+    );
+    const triage = new MockTriageClient();
+    const deps = { store, triage, nextId: createSequentialIds('t') };
+    await ingestFetch({ workspace, source }, PRICING_V1, FETCHED_AT, deps); // baseline (no budget read)
+
+    await expect(ingestFetch({ workspace, source }, PRICING_V2, LATER, deps)).rejects.toThrow(
+      'budget read down',
+    );
+    expect(triage.calls).toBe(0); // the model was never called
+    expect(await store.listDeltas('ws-1')).toHaveLength(0); // nothing persisted
+  });
 });

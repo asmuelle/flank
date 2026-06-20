@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MODEL_IDS, type TokenUsage } from './cogs';
 import { TRIAGE_CLASSES, type SourceType, type Span, type TriageClass } from './entities';
 
 export interface TriageRequest {
@@ -10,18 +11,34 @@ export interface TriageResult {
   readonly triageClass: TriageClass;
   readonly materiality: number;
   readonly rationale: string;
+  /** SDK-reported token usage for cost metering; absent for clients that report none. */
+  readonly usage?: TokenUsage;
 }
 
-/** Anything classifying deltas (mock today, Haiku in M2) implements this. */
+/** Anything classifying deltas (deterministic mock or live Anthropic) implements this. */
 export interface TriageClient {
   classify(request: TriageRequest): Promise<TriageResult>;
 }
 
-/** Boundary validation for model output — never trust an LLM response (AGENTS.md). */
+/**
+ * Boundary validation for the model's ANSWER — never trust an LLM response (AGENTS.md). Deliberately
+ * validates only the classification: token `usage` is SDK transport telemetry (the money input) and
+ * is validated separately by {@link TokenUsageSchema}, never routed through the answer schema —
+ * otherwise the model could under-report its own cost and slip the budget gate.
+ */
 export const TriageResultSchema = z.object({
   triageClass: z.enum(TRIAGE_CLASSES),
   materiality: z.number().int().min(0).max(3),
   rationale: z.string().min(1),
+});
+
+/** Boundary validation for SDK-reported token usage (the cost input): fail closed on garbage. */
+export const TokenUsageSchema = z.object({
+  model: z.enum(MODEL_IDS),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cacheReadTokens: z.number().int().nonnegative(),
+  cacheWriteTokens: z.number().int().nonnegative(),
 });
 
 export class TriageGateError extends Error {
@@ -53,7 +70,8 @@ export const assertTriageAllowed = (
 const PRICE_RE = /[$€£]\s?\d/;
 const PRICING_CONTEXT_RE = /(per month|\/\s?mo\b|monthly|annual|pricing|plan\b|tier\b|seat\b)/i;
 const LEADERSHIP_RE = /\b(vp|vice president|chief|c[etopr]o|head of|director)\b/i;
-const LAUNCH_RE = /\b(introducing|launch(?:ed|ing)?|now available|announcing|general availability)\b/i;
+const LAUNCH_RE =
+  /\b(introducing|launch(?:ed|ing)?|now available|announcing|general availability)\b/i;
 const REPOSITION_RE = /\b(rebrand(?:ing)?|repositioning|the platform for)\b/i;
 
 const result = (triageClass: TriageClass, materiality: number, rationale: string): TriageResult =>

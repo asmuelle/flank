@@ -59,6 +59,10 @@ coverage: _bootstrapped
 test-integration: _bootstrapped
     pnpm test:integration
 
+# Opt-in live triage eval (needs ANTHROPIC_API_KEY; NEVER part of `just ci`). `--record` writes a cassette.
+eval-triage *ARGS: _bootstrapped
+    pnpm eval:triage {{ARGS}}
+
 # Run end-to-end tests (Playwright)
 e2e: _bootstrapped
     pnpm e2e

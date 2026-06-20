@@ -39,6 +39,13 @@ export default defineConfig({
           functions: 100,
           lines: 95,
         },
+        // The money meter — exact COGS math must not silently regress (Invariant 6).
+        '**/packages/core/src/cogs.ts': {
+          statements: 95,
+          branches: 90,
+          functions: 100,
+          lines: 95,
+        },
       },
     },
   },

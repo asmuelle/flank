@@ -103,7 +103,7 @@ describe('drizzle schema (no live database required)', () => {
         'deltas_found',
         'material_deltas',
         'llm_calls',
-        'llm_cost_cents',
+        'llm_cost_micros',
       ]),
     );
   });

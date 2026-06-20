@@ -9,7 +9,7 @@ import {
 } from '@flank/core';
 import { ingestFetch, createSequentialIds, type IngestOutcome } from './ingest';
 import { MemoryFlankStore } from './memory-store';
-import { createTriageClient } from './mock-triage';
+import { createMockTriageClient } from './mock-triage';
 
 /** The six checked-in sample documents (two versions of three sources). */
 export interface FixtureBundle {
@@ -100,10 +100,12 @@ const seedGraph = async (store: MemoryFlankStore) => {
  */
 export const runFixtureScenario = async (
   bundle: FixtureBundle,
-  env: Readonly<Record<string, string | undefined>> = {},
+  // env is accepted for signature compatibility but deliberately ignored: the fixture run is
+  // hermetic and ALWAYS uses the deterministic mock, even when ANTHROPIC_API_KEY is present.
+  _env: Readonly<Record<string, string | undefined>> = {},
 ): Promise<ScenarioResult> => {
   const store = new MemoryFlankStore();
-  const { client, mode } = createTriageClient(env);
+  const { client, mode } = createMockTriageClient();
   const nextId = createSequentialIds('rec');
   const { workspace, competitor, sources } = await seedGraph(store);
   const [changelog, jobs, pricing] = sources;
@@ -133,8 +135,7 @@ export const runFixtureScenario = async (
   const deltas = await store.listDeltas(workspace.id);
   const claimEntries = await Promise.all(
     deltas.map(
-      async (delta) =>
-        [delta.id, await store.listClaimsForDelta(workspace.id, delta.id)] as const,
+      async (delta) => [delta.id, await store.listClaimsForDelta(workspace.id, delta.id)] as const,
     ),
   );
   return Object.freeze({

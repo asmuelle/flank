@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Span } from './entities';
 import {
+  TokenUsageSchema,
   TriageGateError,
   TriageResultSchema,
   assertTriageAllowed,
@@ -134,5 +135,28 @@ describe('TriageResultSchema (LLM output boundary validation)', () => {
     expect(() =>
       TriageResultSchema.parse({ triageClass: 'noise', materiality: 0, rationale: '' }),
     ).toThrow();
+  });
+});
+
+describe('TokenUsageSchema (cost-input boundary, fail-closed)', () => {
+  const valid = {
+    model: 'claude-haiku-4-5',
+    inputTokens: 120,
+    outputTokens: 40,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  };
+
+  it('accepts well-formed usage', () => {
+    expect(TokenUsageSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects an unknown model id', () => {
+    expect(() => TokenUsageSchema.parse({ ...valid, model: 'gpt-9' })).toThrow();
+  });
+
+  it('rejects negative or fractional token counts', () => {
+    expect(() => TokenUsageSchema.parse({ ...valid, inputTokens: -1 })).toThrow();
+    expect(() => TokenUsageSchema.parse({ ...valid, outputTokens: 1.5 })).toThrow();
   });
 });

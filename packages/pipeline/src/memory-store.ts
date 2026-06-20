@@ -201,6 +201,16 @@ export class MemoryFlankStore implements FlankStore {
     );
   }
 
+  async monthToDateCostMicros(workspaceId: string, periodPrefix: string): Promise<number> {
+    let total = 0;
+    for (const run of this.state.coverageRuns.values()) {
+      if (run.workspaceId === workspaceId && run.period.startsWith(periodPrefix)) {
+        total += run.llmCostMicros;
+      }
+    }
+    return total;
+  }
+
   private scheduledSourceFor(source: Source): ScheduledSource | null {
     const competitor = this.state.competitors.get(source.competitorId);
     const workspace = competitor ? this.state.workspaces.get(competitor.workspaceId) : undefined;

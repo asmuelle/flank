@@ -8,12 +8,12 @@ import {
   type Span,
 } from '@flank/core';
 import {
+  bigint,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
-  real,
   text,
   timestamp,
   unique,
@@ -222,7 +222,8 @@ export const coverageRuns = pgTable('coverage_run', {
   deltasFound: integer('deltas_found').notNull(),
   materialDeltas: integer('material_deltas').notNull(),
   llmCalls: integer('llm_calls').notNull(),
-  llmCostCents: real('llm_cost_cents').notNull(),
+  // Exact integer micro-USD (USD × 1e6), never float — drift-free monthly summation (Invariant 6).
+  llmCostMicros: bigint('llm_cost_micros', { mode: 'number' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 });
 

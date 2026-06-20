@@ -15,7 +15,7 @@ import {
   type Source,
   type Workspace,
 } from '@flank/core';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, like, sql } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
   claims,
@@ -100,7 +100,7 @@ const toCoverageRun = (row: typeof coverageRuns.$inferSelect): CoverageRun =>
     deltasFound: row.deltasFound,
     materialDeltas: row.materialDeltas,
     llmCalls: row.llmCalls,
-    llmCostCents: row.llmCostCents,
+    llmCostMicros: assertSafeInteger(row.llmCostMicros, 'coverage_run.llm_cost_micros'),
     createdAt: row.createdAt,
   });
 
@@ -110,6 +110,14 @@ const toCoverageRun = (row: typeof coverageRuns.$inferSelect): CoverageRun =>
  * `cause` chain rather than the top-level error.
  */
 const PG_UNIQUE_VIOLATION = '23505';
+/** Guard money/count values read back from Postgres bigint/sum so an overflow fails loud. */
+const assertSafeInteger = (value: number, label: string): number => {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`${label} is not a safe integer: ${value}`);
+  }
+  return value;
+};
+
 const isUniqueViolation = (error: unknown): boolean => {
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current !== null && current !== undefined; depth += 1) {
@@ -381,7 +389,7 @@ export class DrizzleFlankStore implements FlankStore {
             deltasFound: run.deltasFound,
             materialDeltas: run.materialDeltas,
             llmCalls: run.llmCalls,
-            llmCostCents: run.llmCostCents,
+            llmCostMicros: run.llmCostMicros,
             createdAt: run.createdAt,
           })
           .returning(),
@@ -411,6 +419,20 @@ export class DrizzleFlankStore implements FlankStore {
       .from(coverageRuns)
       .where(eq(coverageRuns.workspaceId, workspaceId));
     return Object.freeze(rows.map(toCoverageRun));
+  }
+
+  async monthToDateCostMicros(workspaceId: string, periodPrefix: string): Promise<number> {
+    // sum(bigint) returns NUMERIC; cast to bigint and coerce through Number with a safety check.
+    const rows = await this.db
+      .select({ total: sql<string>`coalesce(sum(${coverageRuns.llmCostMicros}), 0)::bigint` })
+      .from(coverageRuns)
+      .where(
+        and(
+          eq(coverageRuns.workspaceId, workspaceId),
+          like(coverageRuns.period, `${periodPrefix}%`),
+        ),
+      );
+    return assertSafeInteger(Number(rows[0]?.total ?? 0), 'monthToDateCostMicros');
   }
 
   async listSourcesForScheduling(): Promise<readonly ScheduledSource[]> {
