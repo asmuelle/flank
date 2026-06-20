@@ -20,6 +20,7 @@
     "typecheck": "pnpm -r run typecheck",
     "build": "pnpm --filter @flank/web build",
     "migrate": "pnpm --filter @flank/db migrate",
+    "seed": "tsx packages/db/scripts/seed.ts",
     "eval:triage": "tsx scripts/eval-triage.ts"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import {
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
   type Claim,
@@ -13,6 +14,8 @@ import {
   type DossierSection,
   type DossierSectionKind,
   type FlankStore,
+  type Membership,
+  type MembershipWithWorkspace,
   type ScheduledDelta,
   type ScheduledSource,
   type Snapshot,
@@ -23,12 +26,14 @@ import {
 import { and, desc, eq, inArray, like, ne, sql } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
+  appUsers,
   battlecardSections,
   claims,
   competitors,
   coverageRuns,
   deltas,
   dossierSections,
+  memberships,
   snapshots,
   sources,
   workspaces,
@@ -134,6 +139,18 @@ const toBattlecardSection = (row: typeof battlecardSections.$inferSelect): Battl
     contentMd: row.contentMd,
     claimIds: row.claimIds,
     supersedesId: row.supersedesId,
+    createdAt: row.createdAt,
+  });
+
+const toAppUser = (row: typeof appUsers.$inferSelect): AppUser =>
+  Object.freeze({ id: row.id, email: row.email, name: row.name, createdAt: row.createdAt });
+
+const toMembership = (row: typeof memberships.$inferSelect): Membership =>
+  Object.freeze({
+    id: row.id,
+    userId: row.userId,
+    workspaceId: row.workspaceId,
+    role: row.role,
     createdAt: row.createdAt,
   });
 
@@ -675,6 +692,111 @@ export class DrizzleFlankStore implements FlankStore {
         ),
       );
     return Object.freeze(rows.map((row) => toDelta(row.delta)));
+  }
+
+  async listSourcesForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Source[]> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db.select().from(sources).where(eq(sources.competitorId, competitorId));
+    return Object.freeze(rows.map(toSource));
+  }
+
+  async listDeltasForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Delta[]> {
+    await this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const rows = await this.db
+      .select({ delta: deltas })
+      .from(deltas)
+      .innerJoin(sources, eq(deltas.sourceId, sources.id))
+      .where(and(eq(sources.competitorId, competitorId), eq(deltas.workspaceId, workspaceId)));
+    return Object.freeze(rows.map((row) => toDelta(row.delta)));
+  }
+
+  async seedUser(user: AppUser): Promise<AppUser> {
+    return this.insertOne(
+      () =>
+        this.db
+          .insert(appUsers)
+          .values({
+            id: user.id,
+            email: user.email.toLowerCase(),
+            name: user.name,
+            createdAt: user.createdAt,
+          })
+          .returning(),
+      toAppUser,
+      'app_user',
+    );
+  }
+
+  async seedMembership(membership: Membership): Promise<Membership> {
+    return this.insertOne(
+      () =>
+        this.db
+          .insert(memberships)
+          .values({
+            id: membership.id,
+            userId: membership.userId,
+            workspaceId: membership.workspaceId,
+            role: membership.role,
+            createdAt: membership.createdAt,
+          })
+          .returning(),
+      toMembership,
+      'membership',
+    );
+  }
+
+  async findUserByEmail(email: string): Promise<AppUser | null> {
+    const rows = await this.db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.email, email.toLowerCase()))
+      .limit(1);
+    return rows[0] ? toAppUser(rows[0]) : null;
+  }
+
+  async getUserById(userId: string): Promise<AppUser | null> {
+    const rows = await this.db.select().from(appUsers).where(eq(appUsers.id, userId)).limit(1);
+    return rows[0] ? toAppUser(rows[0]) : null;
+  }
+
+  async listMembershipsForUser(userId: string): Promise<readonly MembershipWithWorkspace[]> {
+    const rows = await this.db
+      .select({ membership: memberships, workspace: workspaces })
+      .from(memberships)
+      .innerJoin(workspaces, eq(memberships.workspaceId, workspaces.id))
+      .where(eq(memberships.userId, userId))
+      .orderBy(memberships.createdAt, memberships.id);
+    return Object.freeze(
+      rows.map((row) =>
+        Object.freeze({
+          membership: toMembership(row.membership),
+          workspace: toWorkspace(row.workspace),
+        }),
+      ),
+    );
+  }
+
+  async getMembership(userId: string, workspaceId: string): Promise<Membership | null> {
+    const rows = await this.db
+      .select()
+      .from(memberships)
+      .where(and(eq(memberships.userId, userId), eq(memberships.workspaceId, workspaceId)))
+      .limit(1);
+    return rows[0] ? toMembership(rows[0]) : null;
+  }
+
+  async listCompetitors(workspaceId: string): Promise<readonly Competitor[]> {
+    const rows = await this.db
+      .select()
+      .from(competitors)
+      .where(eq(competitors.workspaceId, workspaceId));
+    return Object.freeze(rows.map(toCompetitor));
   }
 
   async listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]> {

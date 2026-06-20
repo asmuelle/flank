@@ -3,12 +3,14 @@ import {
   CrossTenantError,
   IllegalTransitionError,
   UnknownEntityError,
+  type AppUser,
   type BattlecardSection,
   type Claim,
   type CoverageRun,
   type Delta,
   type DossierSection,
   type FlankStore,
+  type Membership,
   type Snapshot,
 } from '@flank/core';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -477,6 +479,83 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
 
         const material = await store.listConfirmedMaterialDeltasForCompetitor(WS_A.id, COMP_A.id);
         expect(material.map((d) => d.id)).toEqual(['d-pub']);
+      });
+    });
+
+    describe('request reads: competitor timeline (M2 web)', () => {
+      it('lists every source and delta for a competitor (incl. pending), workspace-scoped', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', {
+          state: 'published',
+          triageClass: 'feature_launch',
+        });
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pending', {
+          state: 'pending',
+          triageClass: 'pricing_change',
+        });
+
+        expect((await store.listSourcesForCompetitor(WS_A.id, COMP_A.id)).map((s) => s.id)).toEqual(
+          [SRC_A.id],
+        );
+        // Unlike the synthesis read, the timeline includes pending deltas (awaiting-confirmation rows).
+        const deltas = await store.listDeltasForCompetitor(WS_A.id, COMP_A.id);
+        expect(deltas.map((d) => d.id).sort()).toEqual(['d-pending', 'd-pub']);
+      });
+
+      it('fails closed for a competitor owned by another workspace (Invariant 8)', async () => {
+        await expect(store.listSourcesForCompetitor(WS_B.id, COMP_A.id)).rejects.toBeInstanceOf(
+          CrossTenantError,
+        );
+        await expect(store.listDeltasForCompetitor(WS_B.id, COMP_A.id)).rejects.toBeInstanceOf(
+          CrossTenantError,
+        );
+      });
+    });
+
+    describe('identity & membership (M2 auth)', () => {
+      const userOn = (id: string, email: string): AppUser => ({
+        id,
+        email,
+        name: null,
+        createdAt: AT,
+      });
+      const grantOn = (
+        id: string,
+        userId: string,
+        workspaceId: string,
+        role: Membership['role'] = 'member',
+      ): Membership => ({ id, userId, workspaceId, role, createdAt: AT });
+
+      it('seeds and looks up users by email (case-insensitive) and id', async () => {
+        await store.seedUser(userOn('u-1', 'Ada@Example.com'));
+        expect((await store.findUserByEmail('ada@example.com'))?.id).toBe('u-1');
+        expect(await store.findUserByEmail('nobody@example.com')).toBeNull();
+        expect((await store.getUserById('u-1'))?.email).toBe('ada@example.com');
+        expect(await store.getUserById('missing')).toBeNull();
+      });
+
+      it('grants memberships joined to the workspace, rejecting a duplicate grant', async () => {
+        await store.seedUser(userOn('u-1', 'ada@example.com'));
+        await store.seedMembership(grantOn('m-a', 'u-1', WS_A.id, 'owner'));
+        await store.seedMembership(grantOn('m-b', 'u-1', WS_B.id));
+        await expect(store.seedMembership(grantOn('m-dup', 'u-1', WS_A.id))).rejects.toBeInstanceOf(
+          AppendOnlyViolationError,
+        );
+
+        const grants = await store.listMembershipsForUser('u-1');
+        expect(grants.map((g) => g.workspace.id).sort()).toEqual(['ws-a', 'ws-b']);
+        expect(grants.map((g) => g.membership.role)).toContain('owner');
+      });
+
+      it('resolves a specific grant and returns null for a non-grant (fail closed)', async () => {
+        await store.seedUser(userOn('u-1', 'ada@example.com'));
+        await store.seedMembership(grantOn('m-a', 'u-1', WS_A.id, 'owner'));
+        expect((await store.getMembership('u-1', WS_A.id))?.role).toBe('owner');
+        expect(await store.getMembership('u-1', WS_B.id)).toBeNull();
+      });
+
+      it('lists competitors workspace-scoped (the request-safe read)', async () => {
+        expect((await store.listCompetitors(WS_A.id)).map((c) => c.id)).toEqual(['comp-a']);
+        expect((await store.listCompetitors(WS_B.id)).map((c) => c.id)).toEqual(['comp-b']);
       });
     });
 

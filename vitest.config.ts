@@ -11,7 +11,16 @@ export default defineConfig({
       include: ['packages/*/src/**/*.ts', 'apps/web/lib/**/*.ts'],
       // drizzle-store.ts is exercised by the DB-backed integration suite, not the unit run, so it
       // would otherwise report as 0% here and drag the gate down — it is covered, just elsewhere.
-      exclude: ['**/*.test.ts', '**/*.integration.test.ts', '**/drizzle-store.ts'],
+      // session.ts / store.ts are thin server-only Next wiring (cookies/redirect/react cache, DB pool)
+      // that imports `server-only` (throws under plain Node/vitest); their pure logic lives in the
+      // covered resolver.ts / secret.ts / session-crypto.ts seams instead.
+      exclude: [
+        '**/*.test.ts',
+        '**/*.integration.test.ts',
+        '**/drizzle-store.ts',
+        '**/apps/web/lib/auth/session.ts',
+        '**/apps/web/lib/store.ts',
+      ],
       thresholds: {
         // Global floor (aggregate across all included files) — the gate that fails `just ci`.
         statements: 80,

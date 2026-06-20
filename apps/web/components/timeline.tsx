@@ -1,4 +1,4 @@
-import type { TimelineEntryView, CitationView } from '../lib/brief';
+import type { TimelineEntryView, CitationView } from '../lib/views/sections';
 
 const CLASS_LABELS: Readonly<Record<string, string>> = {
   pricing_change: 'Pricing change',

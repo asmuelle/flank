@@ -32,7 +32,7 @@ if (databaseUrl === undefined || databaseUrl === '') {
   beforeEach(async () => {
     // Reset between tests; the shared suite re-seeds the same tenant ids each time.
     await handle.client.unsafe(
-      'TRUNCATE TABLE "workspace","competitor","source","snapshot","delta","claim","coverage_run","dossier_section","battlecard_section" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "workspace","competitor","source","snapshot","delta","claim","coverage_run","dossier_section","battlecard_section","app_user","membership" RESTART IDENTITY CASCADE',
     );
   });
 

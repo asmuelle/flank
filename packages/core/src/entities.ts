@@ -169,6 +169,31 @@ export interface BattlecardSection {
   readonly createdAt: Date;
 }
 
+// --- Identity & membership (M2 auth) ---
+
+export const MEMBERSHIP_ROLES = ['owner', 'member'] as const;
+export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
+
+/** A person who can sign in. Identity is global; tenancy comes from {@link Membership}. */
+export interface AppUser {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string | null;
+  readonly createdAt: Date;
+}
+
+/** Grants a user access to a workspace with a role — the only thing that confers tenancy. */
+export interface Membership {
+  readonly id: string;
+  readonly userId: string;
+  readonly workspaceId: string;
+  readonly role: MembershipRole;
+  readonly createdAt: Date;
+}
+
+/** Normalized email at the boundary (lowercased, trimmed) — never trust raw input (AGENTS.md). */
+export const EmailSchema = z.string().trim().toLowerCase().pipe(z.string().email().max(320));
+
 /** Boundary validation for source definitions arriving from config/UI (AGENTS.md: validate external data). */
 export const SourceConfigSchema = z.object({
   id: z.string().min(1),

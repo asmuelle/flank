@@ -13,9 +13,11 @@
   --color-opportunity: oklch(52% 0.12 150);
   --color-quote-bg: oklch(99% 0.003 90);
 
-  --font-display: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
-  --font-ui: Inter, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  /* next/font exposes each family as a CSS variable (see app/layout.tsx); the named fallbacks keep
+     the editorial stack intact before fonts load and if a request is ever blocked. */
+  --font-display: var(--font-source-serif), 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-ui: var(--font-inter), 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: var(--font-jetbrains), 'SF Mono', Menlo, Consolas, monospace;
 
   --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
   --text-hero: clamp(2.5rem, 1.6rem + 3.5vw, 4.5rem);
@@ -311,6 +313,478 @@ main {
 
 .colophon p {
   margin: 0;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.empty {
+  color: var(--color-ink-soft);
+  background: var(--color-quote-bg);
+  border: 1px dashed var(--color-rule);
+  padding: 1.1rem 1.25rem;
+  margin: 0;
+}
+
+.empty code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* ── Sign-in ───────────────────────────────────────────────────────────── */
+.auth-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1.5rem, 6vw, 5rem) 1.25rem;
+}
+
+.auth-card {
+  width: min(28rem, 100%);
+  border: 1px solid var(--color-rule);
+  border-top: 3px solid var(--color-accent);
+  background: var(--color-quote-bg);
+  padding: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.auth-title {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 600;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.auth-sub {
+  color: var(--color-ink-soft);
+  margin: 0 0 1.5rem;
+  font-size: 0.95rem;
+}
+
+.auth-error {
+  border-left: 3px solid var(--color-threat);
+  background: oklch(96% 0.03 27);
+  color: var(--color-threat);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-label {
+  font-size: var(--text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-soft);
+}
+
+.auth-input {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 1rem;
+}
+
+.auth-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-color: var(--color-accent);
+}
+
+.auth-button,
+.ws-go,
+.app-signout {
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.auth-button {
+  margin-top: 0.4rem;
+  padding: 0.7rem 1rem;
+}
+
+.auth-button:hover,
+.auth-button:focus-visible,
+.ws-go:hover,
+.ws-go:focus-visible,
+.app-signout:hover,
+.app-signout:focus-visible {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.auth-foot {
+  color: var(--color-ink-soft);
+  margin: 1.5rem 0 0;
+}
+
+/* ── App shell ─────────────────────────────────────────────────────────── */
+.app-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem clamp(1rem, 4vw, 3rem);
+  border-bottom: 1px solid var(--color-rule);
+  background: var(--color-paper);
+}
+
+.app-bar-lead,
+.app-bar-trail {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  flex-wrap: wrap;
+}
+
+.app-mark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--color-ink);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.app-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.app-nav a {
+  color: var(--color-ink-soft);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.app-nav a:hover,
+.app-nav a:focus-visible {
+  color: var(--color-accent);
+}
+
+.ws-switch {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.ws-select {
+  border: 1px solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  padding: 0.4rem 0.5rem;
+}
+
+.ws-go {
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.ws-name,
+.ws-role {
+  color: var(--color-ink-soft);
+}
+
+.ws-role {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--color-rule);
+  padding: 0.15rem 0.5rem;
+}
+
+.app-signout {
+  background: transparent;
+  color: var(--color-ink-soft);
+  border-color: var(--color-rule);
+}
+
+.app-main {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: var(--space-section) clamp(1rem, 4vw, 3rem);
+}
+
+/* ── Surface (index, competitor, coverage) ─────────────────────────────── */
+.surface-head {
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 3px double var(--color-ink);
+}
+
+.surface-title {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.surface-sub {
+  color: var(--color-ink-soft);
+  margin: 0;
+}
+
+.surface-head .masthead-kicker a {
+  color: inherit;
+}
+
+/* ── Competitor index grid ─────────────────────────────────────────────── */
+.competitor-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--color-rule);
+  border: 1px solid var(--color-rule);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+}
+
+.competitor-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 1.5rem;
+  background: var(--color-paper);
+  text-decoration: none;
+  color: var(--color-ink);
+  min-height: 8rem;
+  align-content: start;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.competitor-card:hover,
+.competitor-card:focus-visible {
+  background: var(--color-quote-bg);
+  outline: none;
+}
+
+.competitor-name {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 600;
+}
+
+.competitor-domain {
+  color: var(--color-ink-soft);
+}
+
+.competitor-cta {
+  margin-top: auto;
+  color: var(--color-accent);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.competitor-card:hover .competitor-cta,
+.competitor-card:focus-visible .competitor-cta {
+  opacity: 1;
+}
+
+/* ── Competitor body: timeline + dossier ───────────────────────────────── */
+.competitor-body {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3.5rem);
+}
+
+@media (min-width: 64rem) {
+  .competitor-body {
+    grid-template-columns: minmax(0, var(--measure)) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.dossier h2,
+.coverage-runs h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+}
+
+.section-stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.section-card {
+  border: 1px solid var(--color-rule);
+  border-left: 3px solid var(--color-accent);
+  padding: 1.1rem 1.25rem;
+  background: var(--color-paper);
+}
+
+.section-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.section-card-head h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  margin: 0;
+}
+
+.section-card-meta {
+  color: var(--color-ink-soft);
+}
+
+.section-body p {
+  margin: 0 0 0.75rem;
+}
+
+.section-citations {
+  margin-top: 1rem;
+  --signal: var(--color-rule);
+}
+
+/* ── Version diff ──────────────────────────────────────────────────────── */
+.diff-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.diff-version-link {
+  border: 1px solid var(--color-rule);
+  padding: 0.2rem 0.6rem;
+  text-decoration: none;
+  color: var(--color-ink-soft);
+}
+
+.diff-version-link[aria-current='true'] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+
+/* Oldest version: a baseline with no predecessor, so it is shown but not clickable. */
+.diff-version-base {
+  color: var(--color-ink-soft);
+  border-style: dashed;
+  cursor: default;
+}
+
+.diff-summary {
+  color: var(--color-ink-soft);
+  margin: 0 0 0.75rem;
+}
+
+.diff-added {
+  color: var(--color-opportunity);
+  font-weight: 700;
+}
+
+.diff-removed {
+  color: var(--color-threat);
+  font-weight: 700;
+}
+
+.diff-lines {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: 1px solid var(--color-rule);
+  background: var(--color-quote-bg);
+  overflow-x: auto;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.75rem;
+  padding: 0.1rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.diff-row[data-op='add'] {
+  background: oklch(95% 0.05 150);
+}
+
+.diff-row[data-op='del'] {
+  background: oklch(95% 0.05 27);
+}
+
+.diff-gutter {
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.diff-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-decoration: none;
+}
+
+ins.diff-text {
+  color: var(--color-opportunity);
+}
+
+del.diff-text {
+  color: var(--color-threat);
+}
+
+/* ── Coverage ──────────────────────────────────────────────────────────── */
+.coverage-body {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3.5rem);
+}
+
+@media (min-width: 64rem) {
+  .coverage-body {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.runs-table th,
+.runs-table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.runs-table th {
+  font-size: var(--text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {

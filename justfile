@@ -47,6 +47,10 @@ db-down:
 migrate: _bootstrapped
     pnpm migrate
 
+# Reset + seed one demo tenant (idempotent; needs DATABASE_URL). Prints the sign-in email.
+seed: _bootstrapped
+    pnpm seed
+
 # Run unit/integration tests (Vitest)
 test: _bootstrapped
     pnpm test

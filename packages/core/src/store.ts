@@ -1,4 +1,5 @@
 import type {
+  AppUser,
   BattlecardSection,
   BattlecardSectionKind,
   Claim,
@@ -8,6 +9,7 @@ import type {
   DeltaState,
   DossierSection,
   DossierSectionKind,
+  Membership,
   Snapshot,
   Source,
   TriageClass,
@@ -132,6 +134,12 @@ export interface SynthesisCompetitor {
   readonly competitor: Competitor;
 }
 
+/** A user's membership joined to the workspace it grants — what the request resolver authorizes against. */
+export interface MembershipWithWorkspace {
+  readonly membership: Membership;
+  readonly workspace: Workspace;
+}
+
 export interface FlankStore {
   seedWorkspace(workspace: Workspace): Promise<Workspace>;
   seedCompetitor(competitor: Competitor): Promise<Competitor>;
@@ -213,6 +221,23 @@ export interface FlankStore {
   ): Promise<readonly Delta[]>;
   /** Every competitor with its tenant — the nightly synthesis worker's cross-tenant fan-out. */
   listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]>;
+
+  // --- Identity & membership (M2 auth) ---
+  seedUser(user: AppUser): Promise<AppUser>;
+  seedMembership(membership: Membership): Promise<Membership>;
+  /** Look up a user by (normalized) email; null if none. Identity is global, not workspace-scoped. */
+  findUserByEmail(email: string): Promise<AppUser | null>;
+  getUserById(userId: string): Promise<AppUser | null>;
+  /** A user's workspace grants, joined to each workspace, ordered (createdAt, id) — the auth set. */
+  listMembershipsForUser(userId: string): Promise<readonly MembershipWithWorkspace[]>;
+  /** The grant for (user, workspace) or null — checked before honoring an active-workspace switch. */
+  getMembership(userId: string, workspaceId: string): Promise<Membership | null>;
+  /** Workspace-scoped competitor list — the request-safe read (NOT listCompetitorsForSynthesis). */
+  listCompetitors(workspaceId: string): Promise<readonly Competitor[]>;
+  /** Sources for one competitor (workspace-scoped) — the timeline's delta→source join. */
+  listSourcesForCompetitor(workspaceId: string, competitorId: string): Promise<readonly Source[]>;
+  /** Every delta for a competitor's sources (workspace-scoped) — the per-competitor activity feed. */
+  listDeltasForCompetitor(workspaceId: string, competitorId: string): Promise<readonly Delta[]>;
 
   /**
    * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}

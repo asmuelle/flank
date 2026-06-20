@@ -29,6 +29,13 @@
       "when": 1781953199198,
       "tag": "0003_cogs_micro_dollars",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781968751444,
+      "tag": "0004_identity_users_memberships",
+      "breakpoints": true
     }
   ]
 }

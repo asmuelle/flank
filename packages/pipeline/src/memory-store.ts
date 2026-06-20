@@ -3,6 +3,7 @@ import {
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
   type Claim,
@@ -13,6 +14,8 @@ import {
   type DossierSection,
   type DossierSectionKind,
   type FlankStore,
+  type Membership,
+  type MembershipWithWorkspace,
   type ScheduledDelta,
   type ScheduledSource,
   type Snapshot,
@@ -43,6 +46,8 @@ interface StoreState {
   readonly battlecardSections: Map<string, BattlecardSection>;
   /** Reserved (surface:competitor:kind:version) keys — mirrors the DB UNIQUE(competitor,kind,version). */
   readonly sectionVersions: Set<string>;
+  readonly users: Map<string, AppUser>;
+  readonly memberships: Map<string, Membership>;
 }
 
 /**
@@ -68,6 +73,8 @@ export class MemoryFlankStore implements FlankStore {
     dossierSections: new Map(),
     battlecardSections: new Map(),
     sectionVersions: new Set(),
+    users: new Map(),
+    memberships: new Map(),
   };
 
   private insertUnique<T extends { readonly id: string }>(
@@ -406,6 +413,96 @@ export class MemoryFlankStore implements FlankStore {
     );
   }
 
+  async listSourcesForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Source[]> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    return Object.freeze(
+      [...this.state.sources.values()].filter((s) => s.competitorId === competitorId),
+    );
+  }
+
+  async listDeltasForCompetitor(
+    workspaceId: string,
+    competitorId: string,
+  ): Promise<readonly Delta[]> {
+    this.requireCompetitorInWorkspace(workspaceId, competitorId);
+    const sourceIds = new Set(
+      [...this.state.sources.values()]
+        .filter((s) => s.competitorId === competitorId)
+        .map((s) => s.id),
+    );
+    return Object.freeze([...this.state.deltas.values()].filter((d) => sourceIds.has(d.sourceId)));
+  }
+
+  async seedUser(user: AppUser): Promise<AppUser> {
+    return this.insertUnique(
+      this.state.users,
+      { ...user, email: user.email.toLowerCase() },
+      'app_user',
+    );
+  }
+
+  async seedMembership(membership: Membership): Promise<Membership> {
+    if (!this.state.users.has(membership.userId)) {
+      throw new UnknownEntityError(`user ${membership.userId} does not exist`);
+    }
+    if (!this.state.workspaces.has(membership.workspaceId)) {
+      throw new UnknownEntityError(`workspace ${membership.workspaceId} does not exist`);
+    }
+    for (const existing of this.state.memberships.values()) {
+      if (
+        existing.userId === membership.userId &&
+        existing.workspaceId === membership.workspaceId
+      ) {
+        throw new AppendOnlyViolationError(
+          `membership (${membership.userId}, ${membership.workspaceId}) already exists`,
+        );
+      }
+    }
+    return this.insertUnique(this.state.memberships, membership, 'membership');
+  }
+
+  async findUserByEmail(email: string): Promise<AppUser | null> {
+    const normalized = email.toLowerCase();
+    for (const user of this.state.users.values()) {
+      if (user.email.toLowerCase() === normalized) return user;
+    }
+    return null;
+  }
+
+  async getUserById(userId: string): Promise<AppUser | null> {
+    return this.state.users.get(userId) ?? null;
+  }
+
+  async listMembershipsForUser(userId: string): Promise<readonly MembershipWithWorkspace[]> {
+    const pairs: MembershipWithWorkspace[] = [];
+    for (const membership of this.state.memberships.values()) {
+      if (membership.userId !== userId) continue;
+      const workspace = this.state.workspaces.get(membership.workspaceId);
+      if (workspace !== undefined) pairs.push(Object.freeze({ membership, workspace }));
+    }
+    pairs.sort((a, b) => {
+      const byTime = a.membership.createdAt.getTime() - b.membership.createdAt.getTime();
+      return byTime !== 0 ? byTime : a.membership.id.localeCompare(b.membership.id);
+    });
+    return Object.freeze(pairs);
+  }
+
+  async getMembership(userId: string, workspaceId: string): Promise<Membership | null> {
+    for (const membership of this.state.memberships.values()) {
+      if (membership.userId === userId && membership.workspaceId === workspaceId) return membership;
+    }
+    return null;
+  }
+
+  async listCompetitors(workspaceId: string): Promise<readonly Competitor[]> {
+    return Object.freeze(
+      [...this.state.competitors.values()].filter((c) => c.workspaceId === workspaceId),
+    );
+  }
+
   async listCompetitorsForSynthesis(): Promise<readonly SynthesisCompetitor[]> {
     const out: SynthesisCompetitor[] = [];
     for (const competitor of this.state.competitors.values()) {
@@ -444,6 +541,8 @@ export class MemoryFlankStore implements FlankStore {
       dossierSections: new Map(this.state.dossierSections),
       battlecardSections: new Map(this.state.battlecardSections),
       sectionVersions: new Set(this.state.sectionVersions),
+      users: new Map(this.state.users),
+      memberships: new Map(this.state.memberships),
     };
   }
 
@@ -461,6 +560,8 @@ export class MemoryFlankStore implements FlankStore {
     replaceMap(this.state.battlecardSections, checkpoint.battlecardSections);
     this.state.sectionVersions.clear();
     for (const key of checkpoint.sectionVersions) this.state.sectionVersions.add(key);
+    replaceMap(this.state.users, checkpoint.users);
+    replaceMap(this.state.memberships, checkpoint.memberships);
   }
 }
 

@@ -1,5 +1,5 @@
 import { formatMicrosAsCents } from '@flank/core';
-import type { CoverageView } from '../lib/brief';
+import type { CoverageView } from '../lib/views/sections';
 
 /**
  * Coverage receipt (Invariant 7): silence must be visible. Reports what was
@@ -10,7 +10,7 @@ export function CoverageReceipt({
   triageMode,
 }: {
   readonly coverage: CoverageView;
-  readonly triageMode: string;
+  readonly triageMode?: string;
 }) {
   const rows: readonly (readonly [string, string])[] = [
     ['Fetches', String(coverage.fetches)],
@@ -31,7 +31,7 @@ export function CoverageReceipt({
           </div>
         ))}
       </dl>
-      <p className="receipt-note mono">triage: {triageMode}</p>
+      {triageMode !== undefined ? <p className="receipt-note mono">triage: {triageMode}</p> : null}
     </aside>
   );
 }

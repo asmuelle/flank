@@ -3,6 +3,7 @@ import {
   DELTA_STATES,
   DOSSIER_SECTION_KINDS,
   LEGAL_STATUSES,
+  MEMBERSHIP_ROLES,
   PLAN_TIERS,
   SOURCE_ADAPTERS,
   SOURCE_TYPES,
@@ -32,6 +33,7 @@ export const alertChannelEnum = pgEnum('alert_channel', ['slack', 'email', 'crm'
 export const alertStatusEnum = pgEnum('alert_status', ['queued', 'delivered', 'failed']);
 export const sectionKindEnum = pgEnum('dossier_section_kind', DOSSIER_SECTION_KINDS);
 export const battlecardKindEnum = pgEnum('battlecard_section_kind', BATTLECARD_SECTION_KINDS);
+export const membershipRoleEnum = pgEnum('membership_role', MEMBERSHIP_ROLES);
 
 export const workspaces = pgTable('workspace', {
   id: text('id').primaryKey(),
@@ -217,6 +219,34 @@ export const coverageRuns = pgTable('coverage_run', {
   llmCostMicros: bigint('llm_cost_micros', { mode: 'number' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 });
+
+/** A person who can sign in (M2 auth). `user` is reserved in Postgres, so the table is `app_user`. */
+export const appUsers = pgTable('app_user', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Grants a user access to a workspace with a role — the only thing that confers tenancy. Mutable. */
+export const memberships = pgTable(
+  'membership',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => appUsers.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    role: membershipRoleEnum('role').notNull().default('member'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('membership_user_workspace_uq').on(table.userId, table.workspaceId),
+    index('membership_user_idx').on(table.userId),
+  ],
+);
 
 /** Tables whose rows must never be UPDATEd or DELETEd (Invariant 5). */
 export const APPEND_ONLY_TABLES = Object.freeze([
