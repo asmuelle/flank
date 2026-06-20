@@ -1,5 +1,7 @@
 # Flank
 
+[![CI](https://github.com/asmuelle/flank/actions/workflows/ci.yml/badge.svg)](https://github.com/asmuelle/flank/actions/workflows/ci.yml)
+
 > The living competitor radar for B2B SaaS: always-on agents maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond — at 1/50th to 1/100th of a Klue contract.
 
 **Category:** LLM wiki / auto-research (living documents + delta alerts, à la Karpathy)
