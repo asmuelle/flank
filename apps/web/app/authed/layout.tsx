@@ -17,6 +17,7 @@ export default async function AuthedLayout({ children }: { readonly children: Re
           </Link>
           <nav aria-label="Primary" className="app-nav">
             <Link href="/authed">Competitors</Link>
+            <Link href="/authed/alerts">Alerts</Link>
             <Link href="/authed/coverage">Coverage</Link>
           </nav>
         </div>

@@ -36,6 +36,13 @@
       "when": 1781968751444,
       "tag": "0004_identity_users_memberships",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0005_alert_delivery",
+      "breakpoints": true
     }
   ]
 }

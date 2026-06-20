@@ -32,7 +32,7 @@ if (databaseUrl === undefined || databaseUrl === '') {
   beforeEach(async () => {
     // Reset between tests; the shared suite re-seeds the same tenant ids each time.
     await handle.client.unsafe(
-      'TRUNCATE TABLE "workspace","competitor","source","snapshot","delta","claim","coverage_run","dossier_section","battlecard_section","app_user","membership" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "workspace","competitor","source","snapshot","delta","claim","coverage_run","dossier_section","battlecard_section","app_user","membership","alert","alert_channel_config" RESTART IDENTITY CASCADE',
     );
   });
 
@@ -158,6 +158,68 @@ if (databaseUrl === undefined || databaseUrl === '') {
           `INSERT INTO "dossier_section" ("id","competitor_id","kind","version","content_md") VALUES ('ds2','comp','overview',1,'b')`,
         ),
       ).rejects.toThrow();
+    });
+
+    it('raw SQL cannot un-deliver, delete, or rewrite a delivered alert (M3 delivery guard)', async () => {
+      const store = new DrizzleFlankStore(handle.db);
+      await store.seedChannelConfig({
+        id: 'cfg',
+        workspaceId: 'ws',
+        channel: 'email',
+        destination: 'alerts@c.example',
+        label: null,
+        enabled: true,
+        createdAt: AT,
+      });
+      await store.enqueueAlert('ws', {
+        id: 'al',
+        workspaceId: 'ws',
+        deltaId: 'd-feat',
+        channel: 'email',
+        channelConfigId: 'cfg',
+        target: 'alerts@c.example',
+        payload: { deltaId: 'd-feat' },
+        status: 'queued',
+        attemptCount: 0,
+        providerRef: null,
+        lastError: null,
+        enqueuedAt: AT,
+        lastAttemptAt: null,
+        deliveredAt: null,
+      });
+      await store.recordAlertOutcome('ws', 'al', 'delivered', { providerRef: 'ref-1' }, AT);
+
+      // delivered is terminal: no path (raw SQL included) flips it back and re-sends.
+      await expect(raw(`UPDATE "alert" SET "status"='queued' WHERE "id"='al'`)).rejects.toThrow(
+        /terminal/,
+      );
+      // identity/provenance columns are immutable.
+      await expect(raw(`UPDATE "alert" SET "target"='evil@x' WHERE "id"='al'`)).rejects.toThrow(
+        /immutable/,
+      );
+      // the delivery log is never deleted.
+      await expect(raw(`DELETE FROM "alert" WHERE "id"='al'`)).rejects.toThrow(/append-only/);
+
+      // A proofless delivery is rejected even via raw SQL (use a fresh queued alert).
+      await store.enqueueAlert('ws', {
+        id: 'al2',
+        workspaceId: 'ws',
+        deltaId: 'd-price',
+        channel: 'email',
+        channelConfigId: 'cfg',
+        target: 'alerts@c.example',
+        payload: { deltaId: 'd-price' },
+        status: 'queued',
+        attemptCount: 0,
+        providerRef: null,
+        lastError: null,
+        enqueuedAt: AT,
+        lastAttemptAt: null,
+        deliveredAt: null,
+      });
+      await expect(
+        raw(`UPDATE "alert" SET "status"='delivered', "delivered_at"=now() WHERE "id"='al2'`),
+      ).rejects.toThrow(/proof/);
     });
   });
 }

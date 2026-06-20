@@ -1,4 +1,7 @@
 import type {
+  Alert,
+  AlertChannelConfig,
+  AlertStatus,
   AppUser,
   BattlecardSection,
   BattlecardSectionKind,
@@ -102,6 +105,40 @@ export const assertDeltaTransition = (
 };
 
 /**
+ * Alert delivery state machine: queued may advance to delivered or failed; a failed alert may be
+ * retried (failed → delivered/failed); delivered is TERMINAL (a delivered alert is never re-sent or
+ * un-delivered). This is the single source of transition truth shared by both stores and mirrored by
+ * a DB `UPDATE` trigger, so deliver-once cannot be bypassed by a new store or by raw SQL.
+ */
+export const ALLOWED_ALERT_TRANSITIONS: Readonly<Record<AlertStatus, readonly AlertStatus[]>> =
+  Object.freeze({
+    queued: Object.freeze(['delivered', 'failed'] as const),
+    failed: Object.freeze(['delivered', 'failed'] as const),
+    delivered: Object.freeze([] as const),
+  });
+
+/**
+ * Authorize an alert status transition. Enforces the machine above and that any `→ delivered`
+ * carries a `providerRef` — a delivery *means* "a provider accepted it and returned a reference", so
+ * an alert can never be marked delivered without proof (parallel to a confirmed pricing delta
+ * requiring `confirmedBySnapshotId`).
+ */
+export const assertAlertTransition = (
+  alert: Pick<Alert, 'id' | 'status'>,
+  to: AlertStatus,
+  providerRef?: string | null,
+): void => {
+  if (!ALLOWED_ALERT_TRANSITIONS[alert.status].includes(to)) {
+    throw new IllegalTransitionError(`alert ${alert.id}: ${alert.status} → ${to} is not allowed`);
+  }
+  if (to === 'delivered' && (providerRef === undefined || providerRef === null)) {
+    throw new IllegalTransitionError(
+      `alert ${alert.id}: → delivered requires a providerRef (proof of delivery)`,
+    );
+  }
+};
+
+/**
  * Repository contract. History tables (snapshots, deltas, claims) are append-only (Invariant 5):
  * no update or delete operations exist beyond the delta state machine and one-shot claim
  * verification.
@@ -132,6 +169,18 @@ export interface ScheduledDelta {
 export interface SynthesisCompetitor {
   readonly workspace: Workspace;
   readonly competitor: Competitor;
+}
+
+/** An enabled delivery destination plus its tenant — the delivery sweep's cross-tenant fan-out. */
+export interface EnabledChannel {
+  readonly workspace: Workspace;
+  readonly config: AlertChannelConfig;
+}
+
+/** An alert still needing a send (queued/failed) plus its tenant — the sweep's work item. */
+export interface DeliverableAlert {
+  readonly workspace: Workspace;
+  readonly alert: Alert;
 }
 
 /** A user's membership joined to the workspace it grants — what the request resolver authorizes against. */
@@ -184,6 +233,12 @@ export interface FlankStore {
   markSourceFailed(sourceId: string): Promise<void>;
   /** Pending pricing deltas awaiting the confirmation firewall, with re-fetch context. */
   listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]>;
+  /**
+   * Confirmed-but-not-yet-published pricing deltas, cross-tenant. The scheduler publishes these
+   * (confirmed → published) so a delta that has passed the re-fetch firewall becomes alertable —
+   * the previously-missing edge of the pricing lifecycle.
+   */
+  listConfirmedPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]>;
 
   // --- Synthesis surface (M2) ---
   // Sections have no workspace_id column; every method scopes via the competitor's workspace.
@@ -238,6 +293,39 @@ export interface FlankStore {
   listSourcesForCompetitor(workspaceId: string, competitorId: string): Promise<readonly Source[]>;
   /** Every delta for a competitor's sources (workspace-scoped) — the per-competitor activity feed. */
   listDeltasForCompetitor(workspaceId: string, competitorId: string): Promise<readonly Delta[]>;
+
+  // --- Alert delivery (M3) ---
+  // Cross-tenant sweep methods (never request-reachable, like the scheduler surface) plus
+  // workspace-scoped settings/log reads (fail closed with CrossTenantError, Invariant 8).
+
+  /** Create a delivery destination (mutable settings; not workspace-arg'd, mirrors seedSource). */
+  seedChannelConfig(config: AlertChannelConfig): Promise<AlertChannelConfig>;
+  /** A workspace's delivery destinations (request-safe settings read). */
+  listChannelConfigs(workspaceId: string): Promise<readonly AlertChannelConfig[]>;
+  /** Every enabled destination across tenants — the sweep's fan-out (cross-tenant). */
+  listEnabledChannelConfigs(): Promise<readonly EnabledChannel[]>;
+  /**
+   * Idempotently enqueue one alert per (delta, channelConfig): a duplicate is a no-op and returns the
+   * existing row (NOT an append-only breach — enqueue is the dedup point), so each enabled destination
+   * delivers exactly once. Workspace-scoped: the delta must belong to the workspace, else
+   * {@link CrossTenantError}.
+   */
+  enqueueAlert(workspaceId: string, alert: Alert): Promise<Alert>;
+  /** Alerts still needing a send across tenants (status queued|failed), capped (cross-tenant). */
+  listDeliverableAlerts(limit: number): Promise<readonly DeliverableAlert[]>;
+  /**
+   * Record one delivery attempt: advance the alert status via {@link assertAlertTransition}, bump the
+   * attempt count, and stamp providerRef/lastError/timestamps. `delivered` requires a providerRef.
+   */
+  recordAlertOutcome(
+    workspaceId: string,
+    alertId: string,
+    to: AlertStatus,
+    detail: { readonly providerRef?: string | null; readonly error?: string | null },
+    at: Date,
+  ): Promise<Alert>;
+  /** A workspace's delivery log, newest first (request-safe, for the /authed/alerts view). */
+  listAlertsForWorkspace(workspaceId: string): Promise<readonly Alert[]>;
 
   /**
    * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}

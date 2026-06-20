@@ -6,6 +6,7 @@ export * from './triage';
 export * from './cogs';
 export * from './store';
 export * from './fetcher';
+export * from './notifier';
 export * from './net-policy';
 export * from './sections';
 export * from './synthesis';

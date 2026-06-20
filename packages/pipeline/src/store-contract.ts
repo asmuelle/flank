@@ -3,6 +3,8 @@ import {
   CrossTenantError,
   IllegalTransitionError,
   UnknownEntityError,
+  type Alert,
+  type AlertChannelConfig,
   type AppUser,
   type BattlecardSection,
   type Claim,
@@ -147,6 +149,44 @@ const battlecardOn = (
   claimIds: [],
   supersedesId: null,
   createdAt: AT,
+  ...over,
+});
+
+const channelOn = (
+  workspaceId: string,
+  id: string,
+  over: Partial<AlertChannelConfig> = {},
+): AlertChannelConfig => ({
+  id,
+  workspaceId,
+  channel: 'email',
+  destination: 'alerts@a.example',
+  label: null,
+  enabled: true,
+  createdAt: AT,
+  ...over,
+});
+
+const alertOn = (
+  workspaceId: string,
+  deltaId: string,
+  id: string,
+  over: Partial<Alert> = {},
+): Alert => ({
+  id,
+  workspaceId,
+  deltaId,
+  channel: 'email',
+  channelConfigId: 'cfg-a',
+  target: 'alerts@a.example',
+  payload: { deltaId },
+  status: 'queued',
+  attemptCount: 0,
+  providerRef: null,
+  lastError: null,
+  enqueuedAt: AT,
+  lastAttemptAt: null,
+  deliveredAt: null,
   ...over,
 });
 
@@ -373,6 +413,21 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         expect(pending[0]?.workspace.id).toBe(WS_A.id);
         expect(pending[0]?.source.id).toBe(SRC_A.id);
       });
+
+      it('lists only confirmed pricing deltas (the publish edge) across tenants', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-confirmed', {
+          triageClass: 'pricing_change',
+          state: 'confirmed',
+          confirmedBySnapshotId: 'd-confirmed-snap',
+        });
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pending', {
+          triageClass: 'pricing_change',
+          state: 'pending',
+        });
+
+        const confirmed = await store.listConfirmedPricingDeltasForScheduling();
+        expect(confirmed.map((p) => p.delta.id)).toEqual(['d-confirmed']);
+      });
     });
 
     describe('monthToDateCostMicros (budget gate sum)', () => {
@@ -556,6 +611,140 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
       it('lists competitors workspace-scoped (the request-safe read)', async () => {
         expect((await store.listCompetitors(WS_A.id)).map((c) => c.id)).toEqual(['comp-a']);
         expect((await store.listCompetitors(WS_B.id)).map((c) => c.id)).toEqual(['comp-b']);
+      });
+    });
+
+    describe('alert delivery (M3)', () => {
+      beforeEach(async () => {
+        await store.seedChannelConfig(channelOn(WS_A.id, 'cfg-a'));
+        await store.seedChannelConfig(
+          channelOn(WS_A.id, 'cfg-a-slack', {
+            channel: 'slack',
+            destination: 'https://hooks.slack.test/x',
+          }),
+        );
+        await store.seedChannelConfig(
+          channelOn(WS_B.id, 'cfg-b', { destination: 'alerts@b.example', enabled: false }),
+        );
+      });
+
+      it('lists channel configs workspace-scoped, and only enabled ones cross-tenant', async () => {
+        expect((await store.listChannelConfigs(WS_A.id)).map((c) => c.id).sort()).toEqual([
+          'cfg-a',
+          'cfg-a-slack',
+        ]);
+        expect((await store.listChannelConfigs(WS_B.id)).map((c) => c.id)).toEqual(['cfg-b']);
+
+        const enabled = await store.listEnabledChannelConfigs();
+        // WS_B's only config is disabled, so it never reaches the sweep.
+        expect(enabled.map((e) => e.config.id).sort()).toEqual(['cfg-a', 'cfg-a-slack']);
+        expect(enabled.every((e) => e.config.enabled)).toBe(true);
+      });
+
+      it('enqueues exactly one alert per (delta, channelConfig) and fails closed cross-tenant', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', { state: 'published' });
+        const first = await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd-pub', 'al-1'));
+        // Same (delta, channelConfig) → dedup → the existing row, never a second.
+        const again = await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd-pub', 'al-2'));
+        expect(again.id).toBe(first.id);
+        // Different channel → a distinct row.
+        const slack = await store.enqueueAlert(
+          WS_A.id,
+          alertOn(WS_A.id, 'd-pub', 'al-3', {
+            channel: 'slack',
+            channelConfigId: 'cfg-a-slack',
+            target: 'https://hooks.slack.test/x',
+          }),
+        );
+        expect(slack.id).toBe('al-3');
+        expect((await store.listAlertsForWorkspace(WS_A.id)).map((a) => a.id).sort()).toEqual([
+          'al-1',
+          'al-3',
+        ]);
+
+        await expect(
+          store.enqueueAlert(WS_B.id, alertOn(WS_B.id, 'd-pub', 'al-x')),
+        ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+
+      it('delivers to two destinations of the SAME channel (dedup is per config, not per channel)', async () => {
+        // A second enabled email destination for the same workspace.
+        await store.seedChannelConfig(
+          channelOn(WS_A.id, 'cfg-a-email2', { destination: 'second@a.example' }),
+        );
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', { state: 'published' });
+
+        const one = await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd-pub', 'al-1'));
+        const two = await store.enqueueAlert(
+          WS_A.id,
+          alertOn(WS_A.id, 'd-pub', 'al-2', {
+            channelConfigId: 'cfg-a-email2',
+            target: 'second@a.example',
+          }),
+        );
+        // Both destinations get a distinct alert — neither is silently dropped.
+        expect(one.id).not.toBe(two.id);
+        expect((await store.listAlertsForWorkspace(WS_A.id)).map((a) => a.target).sort()).toEqual([
+          'alerts@a.example',
+          'second@a.example',
+        ]);
+      });
+
+      it('advances the status machine: delivered needs proof and is terminal', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', { state: 'published' });
+        await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd-pub', 'al-1'));
+
+        // → delivered without a providerRef is rejected (proof required).
+        await expect(
+          store.recordAlertOutcome(WS_A.id, 'al-1', 'delivered', {}, AT),
+        ).rejects.toBeInstanceOf(IllegalTransitionError);
+
+        const failed = await store.recordAlertOutcome(
+          WS_A.id,
+          'al-1',
+          'failed',
+          { error: '503' },
+          AT,
+        );
+        expect(failed).toMatchObject({ status: 'failed', attemptCount: 1, lastError: '503' });
+
+        const delivered = await store.recordAlertOutcome(
+          WS_A.id,
+          'al-1',
+          'delivered',
+          { providerRef: 'msg-1' },
+          AT,
+        );
+        expect(delivered).toMatchObject({
+          status: 'delivered',
+          attemptCount: 2,
+          providerRef: 'msg-1',
+        });
+        expect(delivered.deliveredAt).not.toBeNull();
+
+        // delivered is terminal — no further transition.
+        await expect(
+          store.recordAlertOutcome(WS_A.id, 'al-1', 'failed', { error: 'x' }, AT),
+        ).rejects.toBeInstanceOf(IllegalTransitionError);
+      });
+
+      it('lists deliverable alerts (queued + failed), omitting delivered', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd1', { state: 'published' });
+        await seedDelta(WS_A.id, SRC_A.id, 'd2', { state: 'published' });
+        await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd1', 'al-1'));
+        await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd2', 'al-2'));
+        await store.recordAlertOutcome(WS_A.id, 'al-1', 'delivered', { providerRef: 'm' }, AT);
+
+        const deliverable = await store.listDeliverableAlerts(10);
+        expect(deliverable.map((d) => d.alert.id)).toEqual(['al-2']);
+      });
+
+      it('fails closed recording an outcome for another tenant', async () => {
+        await seedDelta(WS_A.id, SRC_A.id, 'd-pub', { state: 'published' });
+        await store.enqueueAlert(WS_A.id, alertOn(WS_A.id, 'd-pub', 'al-1'));
+        await expect(
+          store.recordAlertOutcome(WS_B.id, 'al-1', 'failed', {}, AT),
+        ).rejects.toBeInstanceOf(CrossTenantError);
       });
     });
 

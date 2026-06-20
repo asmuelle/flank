@@ -12,6 +12,7 @@ import {
 } from '@flank/core';
 import {
   bigint,
+  boolean,
   index,
   integer,
   jsonb,
@@ -189,19 +190,62 @@ export const battlecardSections = pgTable(
   ],
 );
 
-export const alerts = pgTable('alert', {
-  id: text('id').primaryKey(),
-  workspaceId: text('workspace_id')
-    .notNull()
-    .references(() => workspaces.id),
-  deltaId: text('delta_id')
-    .notNull()
-    .references(() => deltas.id),
-  channel: alertChannelEnum('channel').notNull(),
-  payload: jsonb('payload').$type<Readonly<Record<string, unknown>>>().notNull(),
-  status: alertStatusEnum('status').notNull().default('queued'),
-  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
-});
+/** A per-workspace delivery destination (M3, mutable settings — like membership, not history). */
+export const alertChannelConfigs = pgTable(
+  'alert_channel_config',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    channel: alertChannelEnum('channel').notNull(),
+    destination: text('destination').notNull(),
+    label: text('label'),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('alert_channel_config_dest_uq').on(table.workspaceId, table.channel, table.destination),
+    index('alert_channel_config_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+/**
+ * Deduplicated delivery intent + current status (M3). One row per (delta, channel) — the UNIQUE
+ * constraint is the deliver-once guarantee. Mutable only on the status state machine (queued →
+ * delivered|failed; failed retried; delivered terminal), guarded by a trigger (migration 0005),
+ * mirroring the delta-state guard. NOT in APPEND_ONLY_TABLES — status advances.
+ */
+export const alerts = pgTable(
+  'alert',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    deltaId: text('delta_id')
+      .notNull()
+      .references(() => deltas.id),
+    channel: alertChannelEnum('channel').notNull(),
+    channelConfigId: text('channel_config_id')
+      .notNull()
+      .references(() => alertChannelConfigs.id),
+    target: text('target').notNull(),
+    payload: jsonb('payload').$type<Readonly<Record<string, unknown>>>().notNull(),
+    status: alertStatusEnum('status').notNull().default('queued'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    providerRef: text('provider_ref'),
+    lastError: text('last_error'),
+    enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  },
+  (table) => [
+    // Deliver-once per destination (not per channel type): each enabled config delivers once.
+    unique('alert_delta_config_uq').on(table.deltaId, table.channelConfigId),
+    index('alert_workspace_status_idx').on(table.workspaceId, table.status),
+  ],
+);
 
 /** One row per fetch attempt: silence stays visible (Invariant 7) and COGS metered (Invariant 6). */
 export const coverageRuns = pgTable('coverage_run', {

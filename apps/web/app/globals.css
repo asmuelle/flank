@@ -787,6 +787,33 @@ del.diff-text {
   color: var(--color-ink-soft);
 }
 
+/* Delivery-log status badges */
+.alert-status {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentColor;
+}
+
+.alert-status[data-status='delivered'] {
+  color: var(--color-opportunity);
+}
+
+.alert-status[data-status='failed'] {
+  color: var(--color-threat);
+}
+
+.alert-status[data-status='queued'] {
+  color: var(--color-ink-soft);
+}
+
+.alert-error {
+  color: var(--color-threat);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.01ms !important;

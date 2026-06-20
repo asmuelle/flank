@@ -1,8 +1,12 @@
 import {
   AppendOnlyViolationError,
+  assertAlertTransition,
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type Alert,
+  type AlertChannelConfig,
+  type AlertStatus,
   type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
@@ -11,8 +15,10 @@ import {
   type CoverageRun,
   type Delta,
   type DeltaState,
+  type DeliverableAlert,
   type DossierSection,
   type DossierSectionKind,
+  type EnabledChannel,
   type FlankStore,
   type Membership,
   type MembershipWithWorkspace,
@@ -48,6 +54,8 @@ interface StoreState {
   readonly sectionVersions: Set<string>;
   readonly users: Map<string, AppUser>;
   readonly memberships: Map<string, Membership>;
+  readonly channelConfigs: Map<string, AlertChannelConfig>;
+  readonly alerts: Map<string, Alert>;
 }
 
 /**
@@ -75,6 +83,8 @@ export class MemoryFlankStore implements FlankStore {
     sectionVersions: new Set(),
     users: new Map(),
     memberships: new Map(),
+    channelConfigs: new Map(),
+    alerts: new Map(),
   };
 
   private insertUnique<T extends { readonly id: string }>(
@@ -273,9 +283,17 @@ export class MemoryFlankStore implements FlankStore {
   }
 
   async listPendingPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]> {
+    return this.scheduledPricingDeltas('pending');
+  }
+
+  async listConfirmedPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]> {
+    return this.scheduledPricingDeltas('confirmed');
+  }
+
+  private scheduledPricingDeltas(state: DeltaState): readonly ScheduledDelta[] {
     const entries: ScheduledDelta[] = [];
     for (const delta of this.state.deltas.values()) {
-      if (delta.state !== 'pending' || delta.triageClass !== 'pricing_change') continue;
+      if (delta.state !== state || delta.triageClass !== 'pricing_change') continue;
       const source = this.state.sources.get(delta.sourceId);
       const competitor = source ? this.state.competitors.get(source.competitorId) : undefined;
       const workspace = competitor ? this.state.workspaces.get(competitor.workspaceId) : undefined;
@@ -512,6 +530,103 @@ export class MemoryFlankStore implements FlankStore {
     return Object.freeze(out);
   }
 
+  // --- Alert delivery (M3) ---
+
+  async seedChannelConfig(config: AlertChannelConfig): Promise<AlertChannelConfig> {
+    if (!this.state.workspaces.has(config.workspaceId)) {
+      throw new UnknownEntityError(`workspace ${config.workspaceId} does not exist`);
+    }
+    return this.insertUnique(this.state.channelConfigs, config, 'alert_channel_config');
+  }
+
+  async listChannelConfigs(workspaceId: string): Promise<readonly AlertChannelConfig[]> {
+    return Object.freeze(
+      [...this.state.channelConfigs.values()]
+        .filter((c) => c.workspaceId === workspaceId)
+        .sort((a, b) => byCreatedThenId(a.createdAt, a.id, b.createdAt, b.id)),
+    );
+  }
+
+  async listEnabledChannelConfigs(): Promise<readonly EnabledChannel[]> {
+    const out: EnabledChannel[] = [];
+    for (const config of this.state.channelConfigs.values()) {
+      if (!config.enabled) continue;
+      const workspace = this.state.workspaces.get(config.workspaceId);
+      if (workspace !== undefined) out.push(Object.freeze({ workspace, config }));
+    }
+    out.sort((a, b) =>
+      byCreatedThenId(a.config.createdAt, a.config.id, b.config.createdAt, b.config.id),
+    );
+    return Object.freeze(out);
+  }
+
+  async enqueueAlert(workspaceId: string, alert: Alert): Promise<Alert> {
+    this.requireDeltaInWorkspace(workspaceId, alert.deltaId);
+    if (alert.workspaceId !== workspaceId) {
+      throw new CrossTenantError(`alert ${alert.id} is not in workspace ${workspaceId}`);
+    }
+    // Dedup on (delta, channel config) — the UNIQUE constraint's in-memory mirror. A repeat is a
+    // no-op returning the pre-existing row (NOT an append-only breach), so the sweep re-runs safely.
+    // Keyed per config (not per channel type) so each enabled destination delivers exactly once.
+    for (const existing of this.state.alerts.values()) {
+      if (
+        existing.deltaId === alert.deltaId &&
+        existing.channelConfigId === alert.channelConfigId
+      ) {
+        return existing;
+      }
+    }
+    return this.insertUnique(this.state.alerts, alert, 'alert');
+  }
+
+  async listDeliverableAlerts(limit: number): Promise<readonly DeliverableAlert[]> {
+    const out: DeliverableAlert[] = [];
+    for (const alert of this.state.alerts.values()) {
+      if (alert.status !== 'queued' && alert.status !== 'failed') continue;
+      const workspace = this.state.workspaces.get(alert.workspaceId);
+      if (workspace !== undefined) out.push(Object.freeze({ workspace, alert }));
+    }
+    out.sort((a, b) =>
+      byCreatedThenId(a.alert.enqueuedAt, a.alert.id, b.alert.enqueuedAt, b.alert.id),
+    );
+    return Object.freeze(out.slice(0, Math.max(0, limit)));
+  }
+
+  async recordAlertOutcome(
+    workspaceId: string,
+    alertId: string,
+    to: AlertStatus,
+    detail: { readonly providerRef?: string | null; readonly error?: string | null },
+    at: Date,
+  ): Promise<Alert> {
+    const current = this.state.alerts.get(alertId);
+    if (!current) throw new UnknownEntityError(`alert ${alertId} does not exist`);
+    if (current.workspaceId !== workspaceId) {
+      throw new CrossTenantError(`alert ${alertId} is not in workspace ${workspaceId}`);
+    }
+    assertAlertTransition(current, to, detail.providerRef);
+    const next = freezeDeep({
+      ...current,
+      status: to,
+      attemptCount: current.attemptCount + 1,
+      providerRef: to === 'delivered' ? (detail.providerRef ?? null) : current.providerRef,
+      lastError: to === 'failed' ? (detail.error ?? null) : current.lastError,
+      lastAttemptAt: at,
+      deliveredAt: to === 'delivered' ? at : current.deliveredAt,
+    });
+    this.state.alerts.set(alertId, next);
+    return next;
+  }
+
+  async listAlertsForWorkspace(workspaceId: string): Promise<readonly Alert[]> {
+    return Object.freeze(
+      [...this.state.alerts.values()]
+        .filter((a) => a.workspaceId === workspaceId)
+        // Newest first for the delivery-log view.
+        .sort((a, b) => byCreatedThenId(b.enqueuedAt, b.id, a.enqueuedAt, a.id)),
+    );
+  }
+
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {
     const checkpoint = this.captureState();
     try {
@@ -543,6 +658,8 @@ export class MemoryFlankStore implements FlankStore {
       sectionVersions: new Set(this.state.sectionVersions),
       users: new Map(this.state.users),
       memberships: new Map(this.state.memberships),
+      channelConfigs: new Map(this.state.channelConfigs),
+      alerts: new Map(this.state.alerts),
     };
   }
 
@@ -562,10 +679,18 @@ export class MemoryFlankStore implements FlankStore {
     for (const key of checkpoint.sectionVersions) this.state.sectionVersions.add(key);
     replaceMap(this.state.users, checkpoint.users);
     replaceMap(this.state.memberships, checkpoint.memberships);
+    replaceMap(this.state.channelConfigs, checkpoint.channelConfigs);
+    replaceMap(this.state.alerts, checkpoint.alerts);
   }
 }
 
 const replaceMap = <K, V>(target: Map<K, V>, source: Map<K, V>): void => {
   target.clear();
   for (const [key, value] of source) target.set(key, value);
+};
+
+/** Stable ordering by timestamp then id — deterministic across runs (mirrors the SQL ORDER BY). */
+const byCreatedThenId = (aTime: Date, aId: string, bTime: Date, bId: string): number => {
+  const delta = aTime.getTime() - bTime.getTime();
+  return delta !== 0 ? delta : aId.localeCompare(bId);
 };

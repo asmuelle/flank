@@ -210,3 +210,81 @@ export const parseSourceConfig = (input: unknown): Source => {
   const parsed = SourceConfigSchema.parse(input);
   return Object.freeze({ ...parsed });
 };
+
+// --- Alert delivery (M3) ---
+
+/** The channels an alert can be delivered to. (`crm` exists in the DB enum but has no impl yet.) */
+export const ALERT_CHANNELS = ['slack', 'email'] as const;
+export type AlertChannel = (typeof ALERT_CHANNELS)[number];
+
+/** Delivery lifecycle: queued on enqueue, then delivered (terminal) or failed (retried next sweep). */
+export const ALERT_STATUSES = ['queued', 'delivered', 'failed'] as const;
+export type AlertStatus = (typeof ALERT_STATUSES)[number];
+
+/** A per-workspace delivery destination (mutable settings, not history). One workspace has 0..N. */
+export interface AlertChannelConfig {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly channel: AlertChannel;
+  /** Channel-specific: a Slack incoming-webhook URL, or an email recipient address. */
+  readonly destination: string;
+  readonly label: string | null;
+  readonly enabled: boolean;
+  readonly createdAt: Date;
+}
+
+/**
+ * A deduplicated delivery intent + its current status. Exactly one row per (delta, channelConfig) —
+ * the UNIQUE constraint is the deliver-once guarantee, keyed per DESTINATION so a workspace with two
+ * enabled configs of the same channel delivers to both. Status advances on a strict machine
+ * ({@link assertAlertTransition}); `delivered` is terminal and must carry a `providerRef` (proof of
+ * delivery, mirroring a confirmed pricing delta's `confirmedBySnapshotId`).
+ */
+export interface Alert {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly deltaId: string;
+  readonly channel: AlertChannel;
+  readonly channelConfigId: string;
+  /** The destination resolved at enqueue time — captured for provenance, never rewritten. */
+  readonly target: string;
+  /** The frozen AlertPayload we decided to send (what, with proof). */
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly status: AlertStatus;
+  readonly attemptCount: number;
+  readonly providerRef: string | null;
+  readonly lastError: string | null;
+  readonly enqueuedAt: Date;
+  readonly lastAttemptAt: Date | null;
+  readonly deliveredAt: Date | null;
+}
+
+/** Boundary validation for a channel config arriving from settings/UI — never trust raw input. */
+export const AlertChannelConfigSchema = z
+  .object({
+    id: z.string().min(1),
+    workspaceId: z.string().min(1),
+    channel: z.enum(ALERT_CHANNELS),
+    destination: z.string().min(1),
+    label: z.string().nullable().default(null),
+    enabled: z.boolean().default(true),
+  })
+  .superRefine((value, ctx) => {
+    // A Slack destination must be an https webhook URL; an email destination a valid address.
+    if (value.channel === 'slack') {
+      const ok = /^https:\/\//.test(value.destination);
+      if (!ok) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['destination'],
+          message: 'slack destination must be an https webhook URL',
+        });
+      }
+    } else if (!z.string().email().safeParse(value.destination).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['destination'],
+        message: 'email destination must be a valid email address',
+      });
+    }
+  });

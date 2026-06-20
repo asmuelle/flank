@@ -113,10 +113,14 @@ describe('runScheduledTick', () => {
     expect(report.sourcesDue).toBe(0);
     expect(report.confirmationsRun).toBe(1);
     expect(report.confirmed).toBe(1);
+    // The publish edge advances the just-confirmed pricing delta to `published` in the same tick, so
+    // it becomes alertable (it carries confirmedBySnapshotId, so the firewall is satisfied).
+    expect(report.published).toBe(1);
     const pricing = (await store.listDeltas('ws-1')).find(
       (d) => d.triageClass === 'pricing_change',
     );
-    expect(pricing?.state).toBe('confirmed');
+    expect(pricing?.state).toBe('published');
+    expect(pricing?.confirmedBySnapshotId).not.toBeNull();
   });
 
   it('pauses an over-budget workspace (Invariant 6) and skips its model call', async () => {

@@ -3,6 +3,9 @@ import {
   assertDeltaTransition,
   CrossTenantError,
   UnknownEntityError,
+  type Alert,
+  type AlertChannelConfig,
+  type AlertStatus,
   type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
@@ -11,8 +14,10 @@ import {
   type CoverageRun,
   type Delta,
   type DeltaState,
+  type DeliverableAlert,
   type DossierSection,
   type DossierSectionKind,
+  type EnabledChannel,
   type FlankStore,
   type Membership,
   type MembershipWithWorkspace,
@@ -38,150 +43,22 @@ import {
   sources,
   workspaces,
 } from './schema';
-
-// Row → core-entity mappers. The schema carries a few columns the domain does not model yet
-// (snapshot.s3Key, workspace.competitorLimit, …); the domain layer sees only the canonical shape.
-const toWorkspace = (row: typeof workspaces.$inferSelect): Workspace =>
-  Object.freeze({ id: row.id, name: row.name, planTier: row.planTier });
-
-const toCompetitor = (row: typeof competitors.$inferSelect): Competitor =>
-  Object.freeze({
-    id: row.id,
-    workspaceId: row.workspaceId,
-    name: row.name,
-    primaryDomain: row.primaryDomain,
-  });
-
-const toSource = (row: typeof sources.$inferSelect): Source =>
-  Object.freeze({
-    id: row.id,
-    competitorId: row.competitorId,
-    type: row.type,
-    url: row.url,
-    adapter: row.adapter,
-    cadence: row.cadence,
-    legalStatus: row.legalStatus,
-  });
-
-const toSnapshot = (row: typeof snapshots.$inferSelect): Snapshot =>
-  Object.freeze({
-    id: row.id,
-    sourceId: row.sourceId,
-    contentHash: row.contentHash,
-    normalizedText: row.normalizedText,
-    fetchedAt: row.fetchedAt,
-    httpStatus: row.httpStatus,
-    vantage: row.vantage,
-  });
-
-const toDelta = (row: typeof deltas.$inferSelect): Delta =>
-  Object.freeze({
-    id: row.id,
-    sourceId: row.sourceId,
-    fromSnapshotId: row.fromSnapshotId,
-    toSnapshotId: row.toSnapshotId,
-    changedSpans: row.changedSpans,
-    triageClass: row.triageClass,
-    materiality: row.materiality,
-    rationale: row.rationale,
-    state: row.state,
-    confirmedBySnapshotId: row.confirmedBySnapshotId,
-    createdAt: row.createdAt,
-  });
-
-const toClaim = (row: typeof claims.$inferSelect): Claim =>
-  Object.freeze({
-    id: row.id,
-    deltaId: row.deltaId,
-    snapshotId: row.snapshotId,
-    quoteText: row.quoteText,
-    charStart: row.charStart,
-    charEnd: row.charEnd,
-    sourceUrl: row.sourceUrl,
-    capturedAt: row.capturedAt,
-    verifiedAt: row.verifiedAt,
-  });
-
-const toCoverageRun = (row: typeof coverageRuns.$inferSelect): CoverageRun =>
-  Object.freeze({
-    id: row.id,
-    workspaceId: row.workspaceId,
-    period: row.period,
-    sourcesChecked: row.sourcesChecked,
-    fetchFailures: row.fetchFailures,
-    deltasFound: row.deltasFound,
-    materialDeltas: row.materialDeltas,
-    llmCalls: row.llmCalls,
-    llmCostMicros: assertSafeInteger(row.llmCostMicros, 'coverage_run.llm_cost_micros'),
-    createdAt: row.createdAt,
-  });
-
-const toDossierSection = (row: typeof dossierSections.$inferSelect): DossierSection =>
-  Object.freeze({
-    id: row.id,
-    competitorId: row.competitorId,
-    kind: row.kind,
-    version: row.version,
-    contentMd: row.contentMd,
-    claimIds: row.claimIds,
-    model: row.model,
-    batchId: row.batchId,
-    supersedesId: row.supersedesId,
-    createdAt: row.createdAt,
-  });
-
-const toBattlecardSection = (row: typeof battlecardSections.$inferSelect): BattlecardSection =>
-  Object.freeze({
-    id: row.id,
-    competitorId: row.competitorId,
-    kind: row.kind,
-    version: row.version,
-    contentMd: row.contentMd,
-    claimIds: row.claimIds,
-    supersedesId: row.supersedesId,
-    createdAt: row.createdAt,
-  });
-
-const toAppUser = (row: typeof appUsers.$inferSelect): AppUser =>
-  Object.freeze({ id: row.id, email: row.email, name: row.name, createdAt: row.createdAt });
-
-const toMembership = (row: typeof memberships.$inferSelect): Membership =>
-  Object.freeze({
-    id: row.id,
-    userId: row.userId,
-    workspaceId: row.workspaceId,
-    role: row.role,
-    createdAt: row.createdAt,
-  });
-
-/**
- * Postgres unique-violation (duplicate primary key) → append-only breach (Invariant 5). Drizzle
- * wraps the driver error, so the postgres-js `PostgresError` (carrying `code`) is reached via the
- * `cause` chain rather than the top-level error.
- */
-const PG_UNIQUE_VIOLATION = '23505';
-/** Guard money/count values read back from Postgres bigint/sum so an overflow fails loud. */
-const assertSafeInteger = (value: number, label: string): number => {
-  if (!Number.isSafeInteger(value)) {
-    throw new Error(`${label} is not a safe integer: ${value}`);
-  }
-  return value;
-};
-
-const isUniqueViolation = (error: unknown): boolean => {
-  let current: unknown = error;
-  for (let depth = 0; depth < 5 && current !== null && current !== undefined; depth += 1) {
-    if (typeof current !== 'object') break;
-    if (
-      'code' in current &&
-      (current as { readonly code?: unknown }).code === PG_UNIQUE_VIOLATION
-    ) {
-      return true;
-    }
-    current = 'cause' in current ? (current as { readonly cause?: unknown }).cause : undefined;
-  }
-  return false;
-};
+import {
+  assertSafeInteger,
+  isUniqueViolation,
+  toAppUser,
+  toBattlecardSection,
+  toClaim,
+  toCompetitor,
+  toCoverageRun,
+  toDelta,
+  toDossierSection,
+  toMembership,
+  toSnapshot,
+  toSource,
+  toWorkspace,
+} from './drizzle-mappers';
+import * as alertStore from './drizzle-alerts';
 
 /**
  * Postgres-backed FlankStore, held to the exact same `runFlankStoreContract` suite as
@@ -535,6 +412,24 @@ export class DrizzleFlankStore implements FlankStore {
     );
   }
 
+  async listConfirmedPricingDeltasForScheduling(): Promise<readonly ScheduledDelta[]> {
+    const rows = await this.db
+      .select({ delta: deltas, source: sources, workspace: workspaces })
+      .from(deltas)
+      .innerJoin(sources, eq(deltas.sourceId, sources.id))
+      .innerJoin(workspaces, eq(deltas.workspaceId, workspaces.id))
+      .where(and(eq(deltas.state, 'confirmed'), eq(deltas.triageClass, 'pricing_change')));
+    return Object.freeze(
+      rows.map((row) =>
+        Object.freeze({
+          workspace: toWorkspace(row.workspace),
+          source: toSource(row.source),
+          delta: toDelta(row.delta),
+        }),
+      ),
+    );
+  }
+
   private async requireCompetitorInWorkspace(
     workspaceId: string,
     competitorId: string,
@@ -812,6 +707,36 @@ export class DrizzleFlankStore implements FlankStore {
         }),
       ),
     );
+  }
+
+  // --- Alert delivery (M3) --- delegated to ./drizzle-alerts to keep this file within budget.
+
+  seedChannelConfig(config: AlertChannelConfig): Promise<AlertChannelConfig> {
+    return alertStore.seedChannelConfig(this.db, config);
+  }
+  listChannelConfigs(workspaceId: string): Promise<readonly AlertChannelConfig[]> {
+    return alertStore.listChannelConfigs(this.db, workspaceId);
+  }
+  listEnabledChannelConfigs(): Promise<readonly EnabledChannel[]> {
+    return alertStore.listEnabledChannelConfigs(this.db);
+  }
+  enqueueAlert(workspaceId: string, alert: Alert): Promise<Alert> {
+    return alertStore.enqueueAlert(this.db, workspaceId, alert);
+  }
+  listDeliverableAlerts(limit: number): Promise<readonly DeliverableAlert[]> {
+    return alertStore.listDeliverableAlerts(this.db, limit);
+  }
+  recordAlertOutcome(
+    workspaceId: string,
+    alertId: string,
+    to: AlertStatus,
+    detail: { readonly providerRef?: string | null; readonly error?: string | null },
+    at: Date,
+  ): Promise<Alert> {
+    return alertStore.recordAlertOutcome(this.db, workspaceId, alertId, to, detail, at);
+  }
+  listAlertsForWorkspace(workspaceId: string): Promise<readonly Alert[]> {
+    return alertStore.listAlertsForWorkspace(this.db, workspaceId);
   }
 
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {

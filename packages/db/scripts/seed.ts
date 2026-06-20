@@ -43,6 +43,8 @@ const TABLES = [
   'battlecard_section',
   'app_user',
   'membership',
+  'alert',
+  'alert_channel_config',
 ];
 
 const OVERVIEW_V1 = `Acme Analytics is a mid-market product-analytics vendor.
@@ -239,6 +241,76 @@ Lead with total cost of ownership for teams that outgrow a trial.`,
     llmCostMicros: 2_110,
     createdAt: at('2026-06-13T06:05:00Z'),
   });
+
+  // — Delivery: channel destinations + a demo delivery log (one delivered, one failed) —
+  await store.seedChannelConfig({
+    id: 'cfg-email',
+    workspaceId: WS.id,
+    channel: 'email',
+    destination: SEED_EMAIL,
+    label: 'Founder inbox',
+    enabled: true,
+    createdAt: at('2026-05-01T00:00:00Z'),
+  });
+  await store.seedChannelConfig({
+    id: 'cfg-slack',
+    workspaceId: WS.id,
+    channel: 'slack',
+    destination: 'https://hooks.slack.com/services/SEED/PLACEHOLDER/replace-me',
+    label: '#competitive',
+    enabled: false,
+    createdAt: at('2026-05-01T00:00:00Z'),
+  });
+
+  const alertPayload = {
+    deltaId: 'd-feature',
+    competitorName: COMP.name,
+    whatChanged: 'feature_launch (materiality 2/3)',
+    quote: 'Acme raises $40M Series B to move upmarket and ship an Enterprise tier.',
+    sourceUrl: BLOG_URL,
+    capturedAt: at('2026-06-12T07:00:00Z'),
+    rationale: 'Acme announces an Enterprise tier (SSO, audit logs) alongside a $40M Series B.',
+  };
+  const baseAlert = {
+    workspaceId: WS.id,
+    deltaId: 'd-feature',
+    payload: alertPayload,
+    status: 'queued' as const,
+    attemptCount: 0,
+    providerRef: null,
+    lastError: null,
+    enqueuedAt: at('2026-06-12T07:06:00Z'),
+    lastAttemptAt: null,
+    deliveredAt: null,
+  };
+  await store.enqueueAlert(WS.id, {
+    ...baseAlert,
+    id: 'alert-email',
+    channel: 'email',
+    channelConfigId: 'cfg-email',
+    target: SEED_EMAIL,
+  });
+  await store.recordAlertOutcome(
+    WS.id,
+    'alert-email',
+    'delivered',
+    { providerRef: 'resend:seed-demo' },
+    at('2026-06-12T07:06:05Z'),
+  );
+  await store.enqueueAlert(WS.id, {
+    ...baseAlert,
+    id: 'alert-slack',
+    channel: 'slack',
+    channelConfigId: 'cfg-slack',
+    target: 'https://hooks.slack.com/services/SEED/PLACEHOLDER/replace-me',
+  });
+  await store.recordAlertOutcome(
+    WS.id,
+    'alert-slack',
+    'failed',
+    { error: 'slack webhook 404: no_service (placeholder destination)' },
+    at('2026-06-12T07:06:05Z'),
+  );
 
   await handle.close();
   process.stdout.write(`\nSeeded workspace "${WS.name}" with competitor "${COMP.name}".\n`);

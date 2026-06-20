@@ -1,6 +1,7 @@
-import type { FlankStore, SynthesisClient, TriageClient } from '@flank/core';
+import type { FlankStore, Notifier, SynthesisClient, TriageClient } from '@flank/core';
 import { Inngest } from 'inngest';
 import { randomUUID } from 'node:crypto';
+import { runDeliverySweep, type DeliveryOptions } from './delivery';
 import { HttpFetcher } from './http-fetcher';
 import { runScheduledTick, type SchedulerOptions } from './scheduler';
 import { runNightlySynthesis } from './synthesis';
@@ -64,5 +65,40 @@ export const createNightlySynthesisFunction = (
     async () => {
       const { store, client } = await buildRuntime();
       return runNightlySynthesis({ store, client, nextId: () => randomUUID() }, new Date());
+    },
+  );
+
+/** Concrete runtime the delivery sweep needs: the real store + a channel-dispatching notifier. */
+export interface DeliveryRuntime {
+  readonly store: FlankStore;
+  readonly notifier: Notifier;
+}
+
+export interface DeliverySweepConfig {
+  /** Cron cadence (default every 5 minutes). */
+  readonly cron?: string;
+  readonly options?: DeliveryOptions;
+}
+
+/**
+ * The alert-delivery sweep (M3). `concurrency: { limit: 1 }` makes it a singleton so two ticks can
+ * never double-claim — the testable concurrency guard, backed in depth by the UNIQUE(delta, channel)
+ * constraint and the `delivered`-is-terminal trigger. Runs more often than the fetch tick (~3 retries
+ * inside the 15-min detection window) and is cheap when there's nothing to send.
+ */
+export const createDeliverySweepFunction = (
+  buildRuntime: () => Promise<DeliveryRuntime>,
+  config: DeliverySweepConfig = {},
+) =>
+  inngest.createFunction(
+    { id: 'delivery-sweep', concurrency: { limit: 1 } },
+    { cron: config.cron ?? '*/5 * * * *' },
+    async () => {
+      const { store, notifier } = await buildRuntime();
+      return runDeliverySweep(
+        { store, notifier, nextId: () => randomUUID() },
+        new Date(),
+        config.options ?? {},
+      );
     },
   );

@@ -1,8 +1,10 @@
-import { createSynthesisClient, createTriageClient } from '@flank/pipeline';
+import { createNotifier, createSynthesisClient, createTriageClient } from '@flank/pipeline';
 import {
+  createDeliverySweepFunction,
   createNightlySynthesisFunction,
   createScheduledTickFunction,
   inngest,
+  type DeliveryRuntime,
   type SchedulerRuntime,
   type SynthesisRuntime,
 } from '@flank/pipeline/inngest';
@@ -22,10 +24,18 @@ const buildSynthesisRuntime = async (): Promise<SynthesisRuntime> => ({
   client: createSynthesisClient(process.env).client,
 });
 
+const buildDeliveryRuntime = async (): Promise<DeliveryRuntime> => ({
+  store: store(),
+  // Slack uses the per-workspace webhook (no global secret); email needs RESEND_API_KEY +
+  // FLANK_ALERT_FROM. Absent email creds → the notifier records 'failed' rather than dialing out.
+  notifier: createNotifier(process.env),
+});
+
 const scheduledTick = createScheduledTickFunction(buildSchedulerRuntime);
 const nightlySynthesis = createNightlySynthesisFunction(buildSynthesisRuntime);
+const deliverySweep = createDeliverySweepFunction(buildDeliveryRuntime);
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [scheduledTick, nightlySynthesis],
+  functions: [scheduledTick, nightlySynthesis, deliverySweep],
 });

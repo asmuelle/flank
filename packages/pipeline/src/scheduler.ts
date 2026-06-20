@@ -34,6 +34,8 @@ export interface TickReport {
   readonly confirmationsRun: number;
   readonly confirmed: number;
   readonly dismissed: number;
+  /** Confirmed pricing deltas advanced to `published` this tick (the firewall's publish edge). */
+  readonly published: number;
   readonly errors: number;
 }
 
@@ -114,6 +116,20 @@ export const runScheduledTick = async (
     }
   }
 
+  // Publish edge: a pricing delta that has passed the re-fetch firewall (confirmed) is advanced to
+  // `published` so it becomes alertable. (Material non-pricing deltas already publish at ingest.)
+  // This includes deltas confirmed earlier in THIS tick, so a clean confirmation alerts promptly.
+  let published = 0;
+  const confirmedPricing = await deps.store.listConfirmedPricingDeltasForScheduling();
+  for (const entry of confirmedPricing) {
+    try {
+      await deps.store.transitionDelta(entry.workspace.id, entry.delta.id, 'published');
+      published += 1;
+    } catch {
+      errors += 1;
+    }
+  }
+
   return Object.freeze({
     sourcesScheduled: scheduled.length,
     sourcesDue,
@@ -124,6 +140,7 @@ export const runScheduledTick = async (
     confirmationsRun,
     confirmed,
     dismissed,
+    published,
     errors,
   });
 };

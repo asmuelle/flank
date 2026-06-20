@@ -12,5 +12,8 @@ export * from './anthropic-synthesis';
 export * from './mock-synthesis';
 export * from './synthesis';
 export * from './alerts';
+export * from './alert-render';
+export * from './notifier-impls';
+export * from './delivery';
 export * from './fixture-run';
 export * from './fixture-files';
