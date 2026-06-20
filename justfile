@@ -75,6 +75,14 @@ lint: _bootstrapped
 format: _bootstrapped
     pnpm format
 
+# verify formatting (prettier --check); CI gate
+format-check: _bootstrapped
+    pnpm run format:check
+
+# audit dependencies for high+ severity advisories; CI gate
+audit: _bootstrapped
+    pnpm audit --audit-level=high
+
 # Type-check the workspace (tsc --noEmit)
 typecheck: _bootstrapped
     pnpm typecheck
@@ -83,5 +91,5 @@ typecheck: _bootstrapped
 build: _bootstrapped
     pnpm build
 
-# Full CI suite: lint + typecheck + coverage-gated test + build (mirrors GitHub Actions)
-ci: lint typecheck coverage build
+# Full CI suite: lint + format-check + typecheck + coverage-gated test + build + audit (mirrors GitHub Actions)
+ci: lint format-check typecheck coverage build audit

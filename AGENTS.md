@@ -24,19 +24,19 @@ deltas (what changed, why it matters, how to respond) at 1/50th–1/100th of a K
 Agents MUST use `just` recipes, never raw `pnpm`/`docker` invocations. Recipes fail with
 guidance until the workspace is bootstrapped (M0).
 
-| Recipe | Purpose |
-|---|---|
-| `just` | List all recipes |
-| `just setup` | corepack enable + pnpm install |
-| `just dev` | Run the dev servers (web + workers) |
-| `just db-up` / `just db-down` | Start/stop local Postgres (pgvector) via docker compose |
-| `just migrate` | Apply Drizzle migrations |
-| `just test` | Vitest unit/integration tests |
-| `just e2e` | Playwright end-to-end tests |
-| `just lint` / `just format` | ESLint / Prettier |
-| `just typecheck` | tsc --noEmit across the workspace |
-| `just build` | Production build of all packages |
-| `just ci` | lint + typecheck + test + build (what GitHub Actions runs) |
+| Recipe                        | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| `just`                        | List all recipes                                           |
+| `just setup`                  | corepack enable + pnpm install                             |
+| `just dev`                    | Run the dev servers (web + workers)                        |
+| `just db-up` / `just db-down` | Start/stop local Postgres (pgvector) via docker compose    |
+| `just migrate`                | Apply Drizzle migrations                                   |
+| `just test`                   | Vitest unit/integration tests                              |
+| `just e2e`                    | Playwright end-to-end tests                                |
+| `just lint` / `just format`   | ESLint / Prettier                                          |
+| `just typecheck`              | tsc --noEmit across the workspace                          |
+| `just build`                  | Production build of all packages                           |
+| `just ci`                     | lint + typecheck + test + build (what GitHub Actions runs) |
 
 ## Architecture Summary
 
@@ -47,12 +47,12 @@ only ever see changed spans, triaged for materiality by Haiku-class models, and 
 nightly by a frontier batch pass that regenerates only affected dossier/battlecard sections —
 every claim span-pinned (quote + URL + timestamp) and string-verified before publish.
 
-| Module | Responsibility |
-|---|---|
-| `apps/web` | Next.js 15 App Router, TS strict — dossier library, change timeline, battlecards, settings |
-| `packages/core` | Pure TS domain logic: entities, span diffing, materiality rules, citation verification. No I/O. |
+| Module              | Responsibility                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`          | Next.js 15 App Router, TS strict — dossier library, change timeline, battlecards, settings                           |
+| `packages/core`     | Pure TS domain logic: entities, span diffing, materiality rules, citation verification. No I/O.                      |
 | `packages/pipeline` | Inngest functions: source fetchers, hash diffing, Haiku triage, nightly Sonnet batch synthesis, Slack/email delivery |
-| `packages/db` | Drizzle ORM schema + migrations, Postgres + pgvector |
+| `packages/db`       | Drizzle ORM schema + migrations, Postgres + pgvector                                                                 |
 
 ## Coding Standards
 

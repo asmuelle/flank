@@ -120,7 +120,12 @@ describe('gatePublish (Invariant 1: fail closed)', () => {
 describe('gateSectionPublish (Invariant 1: each cited claim verified vs its own snapshot)', () => {
   const SNAP_A = 'Growth plan is now $39 per month.';
   const SNAP_B = 'Now hiring a VP of Sales.';
-  const claim = (id: string, snapshotId: string, quoteText: string, charStart: number): SectionClaim => ({
+  const claim = (
+    id: string,
+    snapshotId: string,
+    quoteText: string,
+    charStart: number,
+  ): SectionClaim => ({
     id,
     snapshotId,
     quoteText,

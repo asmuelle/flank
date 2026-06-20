@@ -31,6 +31,9 @@ export const normalizeGreenhouse = (json: string): string => {
   }
   const lines = [...parsed.data.jobs]
     .sort((a, b) => a.id - b.id)
-    .map((job) => `${job.id} | ${job.title} | ${job.location?.name ?? 'Unspecified'} | ${job.absolute_url}`);
+    .map(
+      (job) =>
+        `${job.id} | ${job.title} | ${job.location?.name ?? 'Unspecified'} | ${job.absolute_url}`,
+    );
   return lines.join('\n');
 };

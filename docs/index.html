@@ -1,776 +1,1896 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Flank — The living competitor radar for B2B SaaS</title>
-<meta name="description" content="Flank runs always-on agents that maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival — pushing only material deltas: what changed, why it matters, how to respond. Synthesis with memory, at a fraction of an enterprise CI contract. Coming soon." />
-<meta name="theme-color" content="#0A0E12" />
-
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E12'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%231F2C36' stroke-width='1.4'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%231F2C36' stroke-width='1.4'/%3E%3Cpath d='M16 16 L27 16 A11 11 0 0 0 21 6 Z' fill='%23B6FF3A' fill-opacity='0.35'/%3E%3Cline x1='16' y1='16' x2='27' y2='16' stroke='%23B6FF3A' stroke-width='1.6'/%3E%3Ccircle cx='21' cy='11' r='1.8' fill='%23B6FF3A'/%3E%3C/svg%3E" />
-
-<meta property="og:type" content="website" />
-<meta property="og:title" content="Flank — The living competitor radar for B2B SaaS" />
-<meta property="og:description" content="Always-on agents maintain citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond. Coming soon." />
-<meta property="og:site_name" content="Flank" />
-<meta property="og:image" content="og.png" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="og.png" />
-
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
-<style>
-  :root {
-    /* War-room palette: near-black slate + single electric lime */
-    --void:        #070A0D;
-    --base:        #0A0E12;
-    --slate:       #0E141A;
-    --slate-2:     #121A21;
-    --slate-3:     #16212A;
-    --hairline:        rgba(176, 196, 190, 0.10);
-    --hairline-strong: rgba(176, 196, 190, 0.20);
-
-    --text:        #EAF2EC;
-    --text-dim:    #9FB0AB;
-    --text-faint:  #6E817C;
-
-    --lime:        #B6FF3A;   /* the one accent — commit */
-    --lime-deep:   #8FD41E;
-    --lime-soft:   rgba(182, 255, 58, 0.13);
-    --lime-line:   rgba(182, 255, 58, 0.32);
-
-    --teal:        #5EE6C4;   /* secondary signal, used sparingly */
-
-    /* Type */
-    --display: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --sans:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-    --text-eyebrow: 0.72rem;
-    --text-body:    clamp(1rem, 0.96rem + 0.22vw, 1.08rem);
-    --text-lead:    clamp(1.12rem, 1.0rem + 0.6vw, 1.4rem);
-    --text-h2:      clamp(1.85rem, 1.25rem + 2.6vw, 3rem);
-    --text-h3:      clamp(1.2rem, 1.05rem + 0.8vw, 1.5rem);
-    --text-hero:    clamp(2.6rem, 1.1rem + 6.4vw, 5.6rem);
-
-    --space-section: clamp(4.5rem, 3rem + 6vw, 8.5rem);
-    --maxw: 1160px;
-
-    --radius: 4px;
-    --radius-lg: 6px;
-
-    --dur: 550ms;
-    --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  * { box-sizing: border-box; }
-
-  html { scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-
-  body {
-    margin: 0;
-    font-family: var(--sans);
-    font-size: var(--text-body);
-    line-height: 1.62;
-    color: var(--text);
-    background:
-      radial-gradient(120% 80% at 85% -8%, rgba(182,255,58,0.07), transparent 52%),
-      radial-gradient(90% 60% at 8% 4%, rgba(94,230,196,0.045), transparent 50%),
-      linear-gradient(180deg, var(--void) 0%, var(--base) 24%, var(--base) 100%);
-    background-attachment: fixed;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
-
-  h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.05; margin: 0; letter-spacing: -0.02em; }
-  p { margin: 0; }
-  a { color: inherit; text-decoration: none; }
-
-  .wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: clamp(1.2rem, 5vw, 2.5rem); }
-
-  .eyebrow {
-    font-family: var(--mono);
-    font-size: var(--text-eyebrow);
-    font-weight: 500;
-    letter-spacing: 0.26em;
-    text-transform: uppercase;
-    color: var(--lime);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.7em;
-  }
-  .eyebrow::before {
-    content: "";
-    width: 1.7em; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--lime));
-  }
-
-  .lead { font-size: var(--text-lead); color: var(--text-dim); line-height: 1.5; }
-  .mono { font-family: var(--mono); }
-
-  /* ---------- Buttons ---------- */
-  .btn {
-    display: inline-flex; align-items: center; gap: 0.6em;
-    font-family: var(--display); font-weight: 600; font-size: 0.96rem;
-    letter-spacing: 0.01em;
-    padding: 0.82em 1.5em;
-    border-radius: var(--radius);
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: transform var(--dur) var(--ease), background-color 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
-    will-change: transform;
-  }
-  .btn-primary {
-    background: var(--lime);
-    color: #0A1400;
-    box-shadow: 0 0 0 1px var(--lime-line), 0 10px 30px rgba(182,255,58,0.18);
-  }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px var(--lime), 0 16px 40px rgba(182,255,58,0.30); }
-  .btn-primary:active { transform: translateY(0); }
-  .btn-ghost {
-    background: rgba(176,196,190,0.04);
-    color: var(--text);
-    border-color: var(--hairline-strong);
-  }
-  .btn-ghost:hover { background: rgba(176,196,190,0.08); border-color: var(--lime-line); transform: translateY(-2px); }
-  .btn-ghost:active { transform: translateY(0); }
-
-  a:focus-visible, button:focus-visible, summary:focus-visible {
-    outline: 2px solid var(--lime);
-    outline-offset: 3px;
-    border-radius: 3px;
-  }
-
-  /* status pill (non-functional, honest) */
-  .status {
-    display: inline-flex; align-items: center; gap: 0.7em;
-    padding: 0.65em 1.1em;
-    border-radius: var(--radius);
-    border: 1px solid var(--hairline-strong);
-    background: rgba(7,10,13,0.55);
-    color: var(--text);
-    font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.04em;
-    transition: transform var(--dur) var(--ease), border-color 200ms ease;
-  }
-  .status:hover { transform: translateY(-2px); border-color: var(--lime-line); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 4px var(--lime-soft); flex: none; }
-  .dot.pulse { animation: pulse 2.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-
-  /* ---------- Header ---------- */
-  header.site {
-    position: sticky; top: 0; z-index: 50;
-    backdrop-filter: blur(14px);
-    background: linear-gradient(180deg, rgba(7,10,13,0.86), rgba(7,10,13,0.45));
-    border-bottom: 1px solid var(--hairline);
-  }
-  .nav { display: flex; align-items: center; justify-content: space-between; padding-block: 0.95rem; }
-  .brand { display: inline-flex; align-items: center; gap: 0.6em; font-family: var(--display); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
-  .brand .mark { width: 28px; height: 28px; flex: none; }
-  .nav-links { display: flex; gap: 1.7rem; align-items: center; }
-  .nav-links a { font-size: 0.9rem; color: var(--text-dim); transition: color 180ms ease; }
-  .nav-links a:hover { color: var(--text); }
-  .nav-cta { font-weight: 600; color: var(--lime) !important; font-family: var(--display); }
-  @media (max-width: 760px) { .nav-links a:not(.nav-cta) { display: none; } }
-
-  /* ---------- Hero ---------- */
-  .hero { position: relative; padding-top: clamp(2.6rem, 2rem + 4vw, 5rem); padding-bottom: var(--space-section); overflow: hidden; }
-  .grid-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0.5;
-    background-image:
-      linear-gradient(var(--hairline) 1px, transparent 1px),
-      linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(80% 70% at 50% 30%, #000 30%, transparent 80%);
-    -webkit-mask-image: radial-gradient(80% 70% at 50% 30%, #000 30%, transparent 80%);
-  }
-  .hero-grid {
-    position: relative; z-index: 2;
-    display: grid; grid-template-columns: 1.04fr 0.96fr; gap: clamp(2rem, 4vw, 4rem); align-items: center;
-  }
-  @media (max-width: 920px) { .hero-grid { grid-template-columns: 1fr; } }
-
-  h1 { font-size: var(--text-hero); font-weight: 600; margin-bottom: 1.1rem; }
-  h1 em { font-style: normal; color: var(--lime); }
-  .hero p.lead { max-width: 44ch; margin-bottom: 2rem; }
-  .hero-actions { display: flex; flex-wrap: wrap; gap: 0.9rem; align-items: center; margin-bottom: 2.1rem; }
-
-  .hero-stats { display: flex; flex-wrap: wrap; gap: 1.6rem 2.4rem; padding-top: 1.6rem; border-top: 1px solid var(--hairline); }
-  .stat .k { font-family: var(--display); font-size: 1.6rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
-  .stat .k span { color: var(--lime); }
-  .stat .l { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); margin-top: 0.15rem; }
-
-  .hero-visual { position: relative; display: flex; justify-content: center; }
-  .radar-card {
-    position: relative; width: min(460px, 100%); aspect-ratio: 1 / 1;
-  }
-  .radar-glow { position: absolute; inset: 4%; border-radius: 50%;
-    background: radial-gradient(circle at 62% 38%, rgba(182,255,58,0.16), transparent 62%); filter: blur(10px); z-index: 0; }
-  .sweepline { transform-box: fill-box; transform-origin: 200px 200px; }
-  @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .sweep-anim { animation: sweep 7s linear infinite; transform-box: view-box; transform-origin: 200px 200px; }
-  .blip { animation: blip 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes blip { 0%,100% { opacity: 0.35; } 45% { opacity: 1; } }
-
-  /* ---------- Section scaffolding ---------- */
-  section { position: relative; }
-  .section-pad { padding-block: var(--space-section); }
-  .section-head { max-width: 60ch; margin-bottom: clamp(2.4rem, 4vw, 3.8rem); }
-  .section-head h2 { font-size: var(--text-h2); margin-block: 0.6rem 1rem; }
-  .section-head p { color: var(--text-dim); }
-
-  .rule { height: 1px; background: linear-gradient(90deg, transparent, var(--hairline-strong), transparent); }
-
-  /* ---------- Promise band (signal feed) ---------- */
-  .promise {
-    background:
-      radial-gradient(70% 120% at 100% 0%, rgba(182,255,58,0.06), transparent 60%),
-      var(--void);
-    border-block: 1px solid var(--hairline);
-  }
-  .promise-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 4.2rem); align-items: center; }
-  @media (max-width: 880px) { .promise-grid { grid-template-columns: 1fr; } }
-  .promise blockquote {
-    margin: 0; font-family: var(--display); font-weight: 500;
-    font-size: clamp(1.55rem, 1.1rem + 2.2vw, 2.5rem); line-height: 1.18; letter-spacing: -0.02em;
-  }
-  .promise blockquote .hl { color: var(--lime); }
-
-  /* live signal feed visual */
-  .feed { border: 1px solid var(--hairline-strong); border-radius: var(--radius-lg); background: linear-gradient(180deg, var(--slate-2), var(--slate)); overflow: hidden; }
-  .feed-bar { display: flex; align-items: center; gap: 0.6em; padding: 0.75rem 1rem; border-bottom: 1px solid var(--hairline); font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.08em; color: var(--text-faint); text-transform: uppercase; }
-  .feed-bar .dot { width: 7px; height: 7px; box-shadow: 0 0 0 3px var(--lime-soft); }
-  .feed-row { display: grid; grid-template-columns: auto 1fr auto; gap: 0.9rem; align-items: start; padding: 0.95rem 1rem; border-bottom: 1px solid var(--hairline); }
-  .feed-row:last-child { border-bottom: none; }
-  .feed-tag { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.25em 0.55em; border-radius: 3px; border: 1px solid var(--lime-line); color: var(--lime); white-space: nowrap; margin-top: 0.1rem; }
-  .feed-tag.muted { color: var(--text-faint); border-color: var(--hairline-strong); }
-  .feed-row .body { min-width: 0; }
-  .feed-row .body b { font-weight: 600; color: var(--text); }
-  .feed-row .body small { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--text-faint); margin-top: 0.2rem; word-break: break-word; }
-  .feed-row .when { font-family: var(--mono); font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; margin-top: 0.1rem; }
-
-  /* ---------- Features (bento) ---------- */
-  .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.1rem; }
-  .card {
-    position: relative;
-    background: linear-gradient(180deg, var(--slate-2), rgba(14,20,26,0.65));
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius-lg);
-    padding: clamp(1.5rem, 2.5vw, 2.1rem);
-    transition: transform var(--dur) var(--ease), border-color 250ms ease, box-shadow 250ms ease;
-    overflow: hidden;
-  }
-  .card::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--lime-line), transparent);
-    opacity: 0; transition: opacity 250ms ease;
-  }
-  .card:hover { transform: translateY(-4px); border-color: var(--hairline-strong); box-shadow: 0 24px 50px rgba(0,0,0,0.4); }
-  .card:hover::before { opacity: 1; }
-  .card .kicker { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lime); font-weight: 500; }
-  .card h3 { font-size: var(--text-h3); margin-block: 0.7rem 0.55rem; }
-  .card p { color: var(--text-dim); font-size: 0.95rem; }
-  .card .visual { margin-top: 1.35rem; }
-
-  .col-3 { grid-column: span 3; }
-  .col-2 { grid-column: span 2; }
-  .col-4 { grid-column: span 4; }
-  .col-6 { grid-column: span 6; }
-  @media (max-width: 900px) { .col-3, .col-2, .col-4 { grid-column: span 3; } .bento { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 640px) { .bento { grid-template-columns: 1fr; } .col-3, .col-2, .col-4, .col-6 { grid-column: 1 / -1; } }
-
-  .card.accent { background: linear-gradient(150deg, rgba(182,255,58,0.09), var(--slate-2) 58%); border-color: var(--lime-line); }
-
-  /* materiality meter */
-  .meter { margin-top: 1.3rem; }
-  .meter-track { height: 10px; border-radius: 999px; background: rgba(176,196,190,0.07); position: relative; overflow: hidden; }
-  .meter-fill { position: absolute; inset: 0 26% 0 0; border-radius: 999px; background: linear-gradient(90deg, var(--lime-deep), var(--lime)); }
-  .meter-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.7rem; color: var(--text-faint); margin-top: 0.5rem; }
-
-  /* source chips */
-  .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1.3rem; }
-  .chip { font-family: var(--mono); font-size: 0.72rem; padding: 0.32em 0.7em; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--text-dim); background: rgba(176,196,190,0.03); }
-  .chip.on { color: #0A1400; background: var(--lime); border-color: var(--lime); font-weight: 600; }
-
-  /* citation pin sample */
-  .cite { margin-top: 1.3rem; font-family: var(--mono); font-size: 0.78rem; border: 1px solid var(--hairline-strong); border-left: 2px solid var(--lime); border-radius: 3px; padding: 0.7rem 0.85rem; color: var(--text-dim); }
-  .cite .q { color: var(--text); }
-  .cite .src { display: block; color: var(--text-faint); margin-top: 0.4rem; font-size: 0.72rem; word-break: break-all; }
-
-  /* ---------- How it works ---------- */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-  @media (max-width: 820px) { .steps { grid-template-columns: 1fr; } }
-  .step { padding-top: 1.3rem; border-top: 1px solid var(--hairline-strong); }
-  .step .num { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; color: var(--lime); }
-  .step h3 { font-family: var(--display); font-size: 1.15rem; font-weight: 600; margin-block: 0.55rem 0.5rem; }
-  .step p { color: var(--text-dim); font-size: 0.94rem; }
-
-  /* ---------- Pricing ---------- */
-  .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.3rem; align-items: stretch; }
-  @media (max-width: 880px) { .price-grid { grid-template-columns: 1fr; } }
-  .plan {
-    border: 1px solid var(--hairline); border-radius: var(--radius-lg);
-    padding: 2rem clamp(1.5rem, 2.4vw, 2.1rem);
-    background: linear-gradient(180deg, var(--slate-2), rgba(14,20,26,0.55));
-    display: flex; flex-direction: column;
-  }
-  .plan.feature { border-color: var(--lime-line); background: linear-gradient(180deg, rgba(182,255,58,0.09), var(--slate-2) 52%); box-shadow: 0 24px 60px rgba(0,0,0,0.45); }
-  .plan .tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; color: var(--text-faint); }
-  .plan.feature .tag { color: var(--lime); }
-  .plan h3 { font-family: var(--display); font-size: 1.4rem; margin-block: 0.55rem 0.25rem; }
-  .plan .amt { font-family: var(--display); font-size: 2.4rem; font-weight: 700; margin-block: 0.7rem 0.2rem; letter-spacing: -0.02em; }
-  .plan .amt span { font-family: var(--mono); font-size: 0.82rem; color: var(--text-faint); font-weight: 400; }
-  .plan .sub { color: var(--text-dim); font-size: 0.9rem; min-height: 3.2em; }
-  .plan ul { list-style: none; margin: 1.3rem 0 1.8rem; padding: 0; display: grid; gap: 0.7rem; }
-  .plan li { display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; font-size: 0.91rem; color: var(--text); }
-  .plan li svg { margin-top: 0.28em; flex: none; }
-  .plan .foot { margin-top: auto; }
-  .price-note { text-align: center; margin-top: 1.7rem; color: var(--text-faint); font-size: 0.85rem; font-family: var(--mono); }
-
-  /* ---------- FAQ ---------- */
-  .faq { display: grid; gap: 0.85rem; max-width: 840px; }
-  details { border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--slate); padding: 0.3rem 1.3rem; transition: border-color 200ms ease; }
-  details[open] { border-color: var(--hairline-strong); }
-  summary { cursor: pointer; list-style: none; padding-block: 1.05rem; font-family: var(--display); font-size: 1.08rem; font-weight: 500; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-  summary::-webkit-details-marker { display: none; }
-  summary .plus { flex: none; width: 20px; height: 20px; position: relative; transition: transform 300ms var(--ease); }
-  summary .plus::before, summary .plus::after { content: ""; position: absolute; background: var(--lime); border-radius: 2px; }
-  summary .plus::before { top: 9px; left: 1px; right: 1px; height: 2px; }
-  summary .plus::after { left: 9px; top: 1px; bottom: 1px; width: 2px; }
-  details[open] summary .plus { transform: rotate(135deg); }
-  details p { color: var(--text-dim); padding-bottom: 1.15rem; font-size: 0.96rem; }
-
-  /* ---------- Final CTA ---------- */
-  .final { text-align: center; }
-  .final-card {
-    position: relative; overflow: hidden;
-    border: 1px solid var(--hairline-strong); border-radius: var(--radius-lg);
-    padding: clamp(2.5rem, 5vw, 4.5rem) 1.5rem;
-    background: radial-gradient(90% 130% at 50% 0%, rgba(182,255,58,0.12), transparent 60%), var(--slate-2);
-  }
-  .final-card .grid-bg { opacity: 0.4; }
-  .final-card h2 { position: relative; z-index: 1; font-size: var(--text-h2); margin-bottom: 1rem; }
-  .final-card p { position: relative; z-index: 1; color: var(--text-dim); max-width: 50ch; margin: 0 auto 2rem; }
-  .final-actions { position: relative; z-index: 1; display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap; }
-
-  /* ---------- Footer ---------- */
-  footer.site { border-top: 1px solid var(--hairline); padding-block: 3rem 2.5rem; color: var(--text-faint); }
-  .foot-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; }
-  .foot-brand { display: flex; align-items: center; gap: 0.55em; font-family: var(--display); font-size: 1.15rem; font-weight: 700; color: var(--text); }
-  .foot-links { display: flex; gap: 1.4rem; flex-wrap: wrap; }
-  .foot-links a { font-size: 0.88rem; color: var(--text-dim); transition: color 180ms ease; }
-  .foot-links a:hover { color: var(--text); }
-  .disclaimer { font-size: 0.81rem; line-height: 1.6; max-width: 76ch; border-top: 1px solid var(--hairline); padding-top: 1.5rem; }
-
-  /* ---------- Scroll reveal ---------- */
-  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 700ms var(--ease), transform 700ms var(--ease); }
-  .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) {
-    .reveal { opacity: 1 !important; transform: none !important; transition: none; }
-    .sweep-anim, .blip, .dot.pulse { animation: none !important; }
-    .btn, .card, .status, .plan { transition: none; }
-  }
-
-  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-</style>
-<script data-goatcounter="https://asmuelle.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
-</head>
-<body>
-
-<a href="#main" class="visually-hidden">Skip to content</a>
-
-<!-- ===== Header ===== -->
-<header class="site">
-  <div class="wrap nav">
-    <a class="brand" href="#top" aria-label="Flank home">
-      <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <rect width="32" height="32" rx="6" fill="#0E141A"/>
-        <circle cx="16" cy="16" r="11" stroke="#1F2C36" stroke-width="1.4"/>
-        <circle cx="16" cy="16" r="5.5" stroke="#1F2C36" stroke-width="1.4"/>
-        <path d="M16 16 L27 16 A11 11 0 0 0 21 6 Z" fill="#B6FF3A" fill-opacity="0.32"/>
-        <line x1="16" y1="16" x2="27" y2="16" stroke="#B6FF3A" stroke-width="1.6"/>
-        <circle cx="21" cy="11" r="1.9" fill="#B6FF3A"/>
-      </svg>
-      Flank
-    </a>
-    <nav class="nav-links" aria-label="Main navigation">
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#faq">FAQ</a>
-      <a href="#waitlist" class="nav-cta">Join the waitlist</a>
-    </nav>
-  </div>
-</header>
-
-<main id="main">
-  <span id="top"></span>
-
-  <!-- ===== Hero ===== -->
-  <section class="hero" aria-labelledby="hero-heading">
-    <div class="grid-bg" aria-hidden="true"></div>
-    <div class="wrap hero-grid">
-      <div class="hero-copy reveal">
-        <p class="eyebrow">Competitive intelligence · B2B SaaS</p>
-        <h1 id="hero-heading">The living competitor radar. <em>What changed</em>, why it matters, how to respond.</h1>
-        <p class="lead">Flank runs always-on agents that maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival — then pushes only the material deltas to Slack and your inbox. Synthesis with memory, not another alert firehose.</p>
-
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#waitlist">Join the waitlist</a>
-          <a class="btn btn-ghost" href="#how">See how it works</a>
-        </div>
-
-        <div class="status" role="note">
-          <span class="dot pulse" aria-hidden="true"></span>
-          <span>Status: pre-launch — building the radar. <b style="color:var(--lime)">Coming soon.</b></span>
-        </div>
-
-        <div class="hero-stats" aria-label="At a glance">
-          <div class="stat"><div class="k">$79<span>–</span>449</div><div class="l">/mo self-serve</div></div>
-          <div class="stat"><div class="k"><span>1</span>00%</div><div class="l">claims citation-pinned</div></div>
-          <div class="stat"><div class="k">Δ-only</div><div class="l">material deltas, no noise</div></div>
-        </div>
-      </div>
-
-      <div class="hero-visual reveal">
-        <div class="radar-card">
-          <div class="radar-glow" aria-hidden="true"></div>
-          <!-- Signature: competitive radar / positioning sweep -->
-          <svg viewBox="0 0 400 400" role="img" aria-label="A competitive radar showing tracked rivals as blips at varying distances, with a rotating scan sweep and a highlighted material delta on the inner ring." style="position:relative;z-index:1;width:100%;height:auto;">
-            <defs>
-              <radialGradient id="sweepG" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#B6FF3A" stop-opacity="0.0"/>
-                <stop offset="100%" stop-color="#B6FF3A" stop-opacity="0.35"/>
-              </radialGradient>
-              <linearGradient id="ringG" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#5EE6C4" stop-opacity="0.5"/>
-                <stop offset="100%" stop-color="#B6FF3A" stop-opacity="0.5"/>
-              </linearGradient>
-            </defs>
-
-            <!-- rings -->
-            <circle cx="200" cy="200" r="168" fill="none" stroke="rgba(176,196,190,0.16)" stroke-width="1.2"/>
-            <circle cx="200" cy="200" r="124" fill="none" stroke="rgba(176,196,190,0.13)" stroke-width="1.2"/>
-            <circle cx="200" cy="200" r="80"  fill="none" stroke="rgba(176,196,190,0.13)" stroke-width="1.2"/>
-            <circle cx="200" cy="200" r="36"  fill="none" stroke="rgba(176,196,190,0.20)" stroke-width="1.2"/>
-            <!-- crosshairs -->
-            <line x1="200" y1="20" x2="200" y2="380" stroke="rgba(176,196,190,0.12)" stroke-width="1"/>
-            <line x1="20" y1="200" x2="380" y2="200" stroke="rgba(176,196,190,0.12)" stroke-width="1"/>
-            <line x1="83" y1="83" x2="317" y2="317" stroke="rgba(176,196,190,0.07)" stroke-width="1"/>
-            <line x1="83" y1="317" x2="317" y2="83" stroke="rgba(176,196,190,0.07)" stroke-width="1"/>
-
-            <!-- rotating sweep -->
-            <g class="sweep-anim">
-              <path d="M200 200 L368 200 A168 168 0 0 0 296 55 Z" fill="url(#sweepG)"/>
-              <line class="sweepline" x1="200" y1="200" x2="368" y2="200" stroke="#B6FF3A" stroke-width="2"/>
-            </g>
-
-            <!-- material-delta arc on inner ring -->
-            <path d="M 200 76 A 124 124 0 0 1 308 138" fill="none" stroke="url(#ringG)" stroke-width="5" stroke-linecap="round"/>
-
-            <!-- blips: tracked competitors -->
-            <g>
-              <circle class="blip" style="animation-delay:0s"   cx="266" cy="142" r="5.5" fill="#B6FF3A"/>
-              <circle class="blip" style="animation-delay:0.8s" cx="132" cy="246" r="4.5" fill="#B6FF3A"/>
-              <circle class="blip" style="animation-delay:1.6s" cx="238" cy="288" r="4"   fill="#B6FF3A"/>
-              <circle class="blip" style="animation-delay:0.4s" cx="150" cy="120" r="4"   fill="#5EE6C4"/>
-              <circle class="blip" style="animation-delay:2.2s" cx="300" cy="244" r="3.6" fill="#5EE6C4"/>
-              <circle class="blip" style="animation-delay:1.2s" cx="118" cy="180" r="3.2" fill="#5EE6C4"/>
-            </g>
-
-            <!-- center node (you) -->
-            <circle cx="200" cy="200" r="7" fill="#EAF2EC"/>
-            <circle cx="200" cy="200" r="13" fill="none" stroke="#B6FF3A" stroke-width="1.4" opacity="0.8"/>
-
-            <!-- delta callout -->
-            <g>
-              <line x1="266" y1="142" x2="332" y2="108" stroke="rgba(176,196,190,0.3)" stroke-width="1"/>
-              <rect x="284" y="78" width="98" height="34" rx="3" fill="#0E141A" stroke="var(--lime-line, rgba(182,255,58,0.32))" stroke-width="1"/>
-              <text x="294" y="93" fill="#B6FF3A" font-family="'JetBrains Mono', monospace" font-size="9" letter-spacing="1">PRICING Δ</text>
-              <text x="294" y="105" fill="#9FB0AB" font-family="'JetBrains Mono', monospace" font-size="8">+18% · verified</text>
-            </g>
-
-            <!-- caption -->
-            <text x="200" y="392" text-anchor="middle" fill="#6E817C" font-family="'JetBrains Mono', monospace" font-size="10" letter-spacing="2">SCANNING 412 SOURCES · 15 RIVALS TRACKED</text>
-          </svg>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== Promise band: signal feed ===== -->
-  <section id="promise" class="promise section-pad" aria-labelledby="promise-heading">
-    <div class="wrap promise-grid">
-      <div class="reveal">
-        <p class="eyebrow">The promise</p>
-        <h2 id="promise-heading" class="visually-hidden">What Flank delivers</h2>
-        <blockquote>Delta over <span class="hl">deluge.</span> Memory over one-shot. Provenance over <span class="hl">vibes.</span></blockquote>
-        <p class="lead" style="margin-top:1.5rem; max-width:44ch;">Google Alerts buries you in noise. One-shot ChatGPT research forgets everything between runs. Flank watches continuously, remembers what it saw, and only interrupts you when something genuinely material moves — with the quote and URL to back it up.</p>
-      </div>
-      <div class="feed reveal" role="img" aria-label="An illustrative signal feed showing classified competitor deltas: a pricing change, a feature launch, and a hiring signal, each with a source citation.">
-        <div class="feed-bar"><span class="dot pulse" aria-hidden="true"></span> Signal feed · illustrative</div>
-        <div class="feed-row">
-          <span class="feed-tag">Pricing Δ</span>
-          <div class="body"><b>Rival raised Pro tier +18%</b><small>"$24/seat/mo" → quote pinned at extraction · span-verified</small></div>
-          <span class="when">2h</span>
-        </div>
-        <div class="feed-row">
-          <span class="feed-tag">Launch</span>
-          <div class="body"><b>Shipped an AI summarizer to GA</b><small>changelog diff · cross-referenced to docs update</small></div>
-          <span class="when">9h</span>
-        </div>
-        <div class="feed-row">
-          <span class="feed-tag muted">Hiring</span>
-          <div class="body"><b>3 enterprise AE roles opened</b><small>Greenhouse JSON · down-market push signal</small></div>
-          <span class="when">1d</span>
-        </div>
-        <div class="feed-row">
-          <span class="feed-tag muted">Quiet</span>
-          <div class="body"><b>412 sources checked, nothing material</b><small>negative-space report · QoQ trendline attached</small></div>
-          <span class="when">wk</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== Features (bento) ===== -->
-  <section id="features" class="section-pad" aria-labelledby="features-heading">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">What Flank does</p>
-        <h2 id="features-heading">A standing agent per rival, watching a fixed source graph — built for trust, not just alerts.</h2>
-        <p>Every delta is classified for materiality, every claim pinned to a quote and URL, every battlecard regenerated only where it actually changed.</p>
-      </div>
-
-      <div class="bento">
-        <article class="card col-3 reveal">
-          <span class="kicker">Living dossiers</span>
-          <h3>Versioned, never wiped</h3>
-          <p>Each competitor gets a standing agent and a longitudinal change timeline — pricing archaeology, feature history, hiring trajectory. The record only exists if you were watching, and Flank always was.</p>
-          <div class="visual chips">
-            <span class="chip on">v18</span><span class="chip">v17</span><span class="chip">v16</span><span class="chip">…</span><span class="chip">v1</span>
-          </div>
-        </article>
-
-        <article class="card col-3 reveal">
-          <span class="kicker">Materiality triage</span>
-          <h3>Only what moves the needle</h3>
-          <p>Content-hash diffing means the model only ever sees changed content. A fast triage pass scores each delta — pricing change, feature launch, repositioning, leadership hire, hiring signal — so noise never reaches your team.</p>
-          <div class="visual meter" aria-hidden="true">
-            <div class="meter-track"><div class="meter-fill"></div></div>
-            <div class="meter-labels"><span>noise</span><span>MATERIAL · escalate</span></div>
-          </div>
-        </article>
-
-        <article class="card col-4 reveal">
-          <span class="kicker">Citation pinning</span>
-          <h3>Every claim pinned to a quote and URL — span-verified before publish</h3>
-          <p>Each fact is extracted with its exact quote, source URL, and timestamp, then string-verified against the stored snapshot before it's ever shown. A direct attack on the citation-misattribution problem that makes reps distrust CI tools.</p>
-          <div class="visual cite">
-            <span class="q">"Team plan now includes SSO and SCIM at no extra cost."</span>
-            <span class="src">↳ rival.com/pricing · captured 2026-06-18 14:02 UTC · span ✓</span>
-          </div>
-        </article>
-
-        <article class="card col-2 accent reveal">
-          <span class="kicker">Battlecards</span>
-          <h3>Self-refreshing, surgical</h3>
-          <p>One nightly frontier pass regenerates only the affected battlecard sections — never the whole artifact — so your sales answers stay current without churn.</p>
-        </article>
-
-        <article class="card col-6 reveal">
-          <span class="kicker">Where your team lives</span>
-          <h3>Deltas land in Slack and the inbox — and on the deal record</h3>
-          <p>Material changes arrive as a Slack alert and an email digest, because intelligence that doesn't reach the team becomes the Google Alerts failure mode. Deal-context alerts can fire when a tracked competitor attaches to an open CRM opportunity, with a HubSpot/Salesforce sidebar and Notion export at the Team tier.</p>
-          <div class="visual chips">
-            <span class="chip on">Slack</span><span class="chip on">Email digest</span><span class="chip">CRM sidebar</span><span class="chip">Notion export</span><span class="chip">Change timeline</span>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <div class="wrap"><div class="rule reveal" aria-hidden="true"></div></div>
-
-  <!-- ===== How it works ===== -->
-  <section id="how" class="section-pad" aria-labelledby="how-heading">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">How it works</p>
-        <h2 id="how-heading">Three moves. The agents do the standing watch.</h2>
-      </div>
-      <div class="steps">
-        <div class="step reveal">
-          <div class="num">STEP 01</div>
-          <h3>Name your rivals</h3>
-          <p>Add the competitors that matter. Flank stands up a per-competitor agent over a fixed source graph — pricing pages, changelogs, docs, job boards, review streams, status pages, blog and PR feeds.</p>
-        </div>
-        <div class="step reveal">
-          <div class="num">STEP 02</div>
-          <h3>The radar watches</h3>
-          <p>Content-hash diffing surfaces only changed spans; a triage pass classifies each delta for materiality; a nightly pass updates the dossier and regenerates only the affected battlecard sections — every claim pinned and verified.</p>
-        </div>
-        <div class="step reveal">
-          <div class="num">STEP 03</div>
-          <h3>You act on the delta</h3>
-          <p>Material changes arrive in Slack and your inbox with what changed, why it matters, and how to respond. Quiet week? You still get a "412 sources checked, nothing material" report with the trendline.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== Pricing ===== -->
-  <section id="pricing" class="promise section-pad" aria-labelledby="pricing-heading">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Pricing</p>
-        <h2 id="pricing-heading">Self-serve, bottom-up — the synthesis-with-memory tier the enterprise leaves empty.</h2>
-        <p>Three plans. Growth is the anchor. Extra competitors are $10/mo each. Annual prepay runs two months free.</p>
-      </div>
-
-      <div class="price-grid">
-        <div class="plan reveal">
-          <span class="tag">Starter</span>
-          <h3>Starter</h3>
-          <div class="amt">$79<span> / mo</span></div>
-          <p class="sub">The wedge out of Google Alerts noise for founders and PMMs.</p>
-          <ul>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to 5 competitors tracked</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Email digest of material deltas</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Citation-pinned dossiers</li>
-          </ul>
-          <div class="foot"><a class="btn btn-ghost" href="#waitlist" style="width:100%; justify-content:center;">Join the waitlist</a></div>
-        </div>
-
-        <div class="plan feature reveal">
-          <span class="tag">Growth · most popular</span>
-          <h3>Growth</h3>
-          <div class="amt">$199<span> / mo</span></div>
-          <p class="sub">The anchor tier — synthesis, Slack, and auto-maintained battlecards.</p>
-          <ul>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#B6FF3A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to 15 competitors tracked</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#B6FF3A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Slack alerts on material deltas</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#B6FF3A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Auto-maintained battlecards</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#B6FF3A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Full change history &amp; timeline</li>
-          </ul>
-          <div class="foot"><a class="btn btn-primary" href="#waitlist" style="width:100%; justify-content:center;">Join the waitlist</a></div>
-        </div>
-
-        <div class="plan reveal">
-          <span class="tag">Team</span>
-          <h3>Team</h3>
-          <div class="amt">$449<span> / mo</span></div>
-          <p class="sub">CI as sales infrastructure — embedded in your CRM rituals.</p>
-          <ul>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to 40 competitors tracked</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>HubSpot / Salesforce sidebar</li>
-            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="#9FB0AB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Multi-seat, SSO &amp; API</li>
-          </ul>
-          <div class="foot"><a class="btn btn-ghost" href="#waitlist" style="width:100%; justify-content:center;">Join the waitlist</a></div>
-        </div>
-      </div>
-      <p class="price-note">+$10/mo per extra competitor · annual prepay = 2 months free · prices indicative, pre-launch</p>
-    </div>
-  </section>
-
-  <!-- ===== FAQ ===== -->
-  <section id="faq" class="section-pad" aria-labelledby="faq-heading">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <p class="eyebrow">Straight answers</p>
-        <h2 id="faq-heading">The honest questions, answered honestly.</h2>
-      </div>
-      <div class="faq reveal">
-        <details open>
-          <summary>How is this different from ChatGPT or Perplexity scheduled research?<span class="plus" aria-hidden="true"></span></summary>
-          <p>One-shot research regenerates today's snapshot and forgets it by the next run — there's no cross-run memory and no "what changed since last time." Flank is built around exactly that gap: versioned dossiers, content-hash diffing so the model only sees what actually changed, and a longitudinal timeline per competitor. The general-purpose tools are real and capable; Flank's bet is on memory, materiality triage, and span-verified provenance, not on being a better one-shot researcher.</p>
-        </details>
-        <details>
-          <summary>How do you keep alerts trustworthy and avoid false deltas?<span class="plus" aria-hidden="true"></span></summary>
-          <p>Every claim is extracted with its exact quote, source URL, and timestamp, then string-verified against the stored snapshot before publish — so misattributed citations don't ship. We're candid about the hard part: pricing pages are A/B-tested, geo-personalized, and cookie-gated, and no monitoring tool can promise perfect recall. Flank treats CI as a research and monitoring aid, surfaces its evidence, and expects you to verify a material claim before acting on it in a live deal.</p>
-        </details>
-        <details>
-          <summary>What does Flank actually monitor?<span class="plus" aria-hidden="true"></span></summary>
-          <p>A fixed source graph per competitor: pricing pages, changelogs and release notes, docs diffs, app-store listings, public job-board feeds (Greenhouse / Lever / Ashby), review streams, status pages, and blog/PR/RSS, with new-page and news discovery on top. Some sources are anti-bot-protected or contractually restricted, so coverage varies by competitor and source — we'd rather be straight about that than overpromise a single all-seeing crawler.</p>
-        </details>
-        <details>
-          <summary>When can I use it, and what does it cost?<span class="plus" aria-hidden="true"></span></summary>
-          <p>Flank is pre-launch. The plan is three self-serve tiers — Starter $79/mo (5 competitors), Growth $199/mo (15 competitors, the anchor), and Team $449/mo (40 competitors, CRM sidebar, SSO, API) — with $10/mo per extra competitor and two months free on annual prepay. Prices are indicative and may change before launch. Join the waitlist and we'll let you know when early access opens.</p>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== Final CTA ===== -->
-  <section id="waitlist" class="section-pad final" aria-labelledby="get-heading">
-    <div class="wrap">
-      <div class="final-card reveal">
-        <div class="grid-bg" aria-hidden="true"></div>
-        <p class="eyebrow" style="justify-content:center;">Flank · coming soon</p>
-        <h2 id="get-heading">Get on the radar before your competitors do.</h2>
-        <p>Always-on dossiers, citation-pinned deltas, and battlecards that maintain themselves — delivered where your team already works. Join the waitlist for early access.</p>
-        <div class="final-actions">
-          <a class="btn btn-primary" href="#" aria-label="Join the waitlist — coming soon">Join the waitlist</a>
-          <a class="btn btn-ghost" href="#how">How it works</a>
-        </div>
-      </div>
-    </div>
-  </section>
-</main>
-
-<!-- ===== Footer ===== -->
-<footer class="site">
-  <div class="wrap">
-    <div class="foot-top">
-      <div class="foot-brand">
-        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <circle cx="16" cy="16" r="11" stroke="#1F2C36" stroke-width="1.4"/>
-          <path d="M16 16 L27 16 A11 11 0 0 0 21 6 Z" fill="#B6FF3A" fill-opacity="0.32"/>
-          <line x1="16" y1="16" x2="27" y2="16" stroke="#B6FF3A" stroke-width="1.6"/>
-          <circle cx="21" cy="11" r="1.9" fill="#B6FF3A"/>
-        </svg>
-        Flank
-      </div>
-      <nav class="foot-links" aria-label="Footer">
-        <a href="#how">How it works</a>
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#faq">FAQ</a>
-        <a href="#waitlist">Join the waitlist</a>
-      </nav>
-    </div>
-    <p class="disclaimer">
-      Flank is a competitive-research and monitoring tool, <strong>not a system of record</strong>. Deltas, materiality scores, and battlecards are agent-generated estimates drawn from public sources, and source coverage varies — some pages are anti-bot-protected, personalized, or contractually restricted. Citations are pinned and span-verified to reduce misattribution, but Flank cannot guarantee completeness or perfect recall. <strong>Verify any material claim before acting on it</strong>, especially in a live deal. Flank is pre-launch; features and pricing are indicative and subject to change.
-      <br /><br />
-      © 2026 Flank. Synthesis with memory. Provenance over vibes.
-    </p>
-  </div>
-</footer>
-
-<script>
-  // Scroll-reveal, gated on reduced-motion. No external deps.
-  (function () {
-    var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var els = document.querySelectorAll('.reveal');
-    if (prefersReduced || !('IntersectionObserver' in window)) {
-      els.forEach(function (el) { el.classList.add('in'); });
-      return;
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('in');
-          io.unobserve(entry.target);
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flank — The living competitor radar for B2B SaaS</title>
+    <meta
+      name="description"
+      content="Flank runs always-on agents that maintain versioned, citation-pinned dossiers and self-refreshing battlecards per rival — pushing only material deltas: what changed, why it matters, how to respond. Synthesis with memory, at a fraction of an enterprise CI contract. Coming soon."
+    />
+    <meta name="theme-color" content="#0A0E12" />
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0E12'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%231F2C36' stroke-width='1.4'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%231F2C36' stroke-width='1.4'/%3E%3Cpath d='M16 16 L27 16 A11 11 0 0 0 21 6 Z' fill='%23B6FF3A' fill-opacity='0.35'/%3E%3Cline x1='16' y1='16' x2='27' y2='16' stroke='%23B6FF3A' stroke-width='1.6'/%3E%3Ccircle cx='21' cy='11' r='1.8' fill='%23B6FF3A'/%3E%3C/svg%3E"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Flank — The living competitor radar for B2B SaaS" />
+    <meta
+      property="og:description"
+      content="Always-on agents maintain citation-pinned dossiers and self-refreshing battlecards per rival, pushing only material deltas — what changed, why it matters, how to respond. Coming soon."
+    />
+    <meta property="og:site_name" content="Flank" />
+    <meta property="og:image" content="og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="og.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        /* War-room palette: near-black slate + single electric lime */
+        --void: #070a0d;
+        --base: #0a0e12;
+        --slate: #0e141a;
+        --slate-2: #121a21;
+        --slate-3: #16212a;
+        --hairline: rgba(176, 196, 190, 0.1);
+        --hairline-strong: rgba(176, 196, 190, 0.2);
+
+        --text: #eaf2ec;
+        --text-dim: #9fb0ab;
+        --text-faint: #6e817c;
+
+        --lime: #b6ff3a; /* the one accent — commit */
+        --lime-deep: #8fd41e;
+        --lime-soft: rgba(182, 255, 58, 0.13);
+        --lime-line: rgba(182, 255, 58, 0.32);
+
+        --teal: #5ee6c4; /* secondary signal, used sparingly */
+
+        /* Type */
+        --display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+        --text-eyebrow: 0.72rem;
+        --text-body: clamp(1rem, 0.96rem + 0.22vw, 1.08rem);
+        --text-lead: clamp(1.12rem, 1rem + 0.6vw, 1.4rem);
+        --text-h2: clamp(1.85rem, 1.25rem + 2.6vw, 3rem);
+        --text-h3: clamp(1.2rem, 1.05rem + 0.8vw, 1.5rem);
+        --text-hero: clamp(2.6rem, 1.1rem + 6.4vw, 5.6rem);
+
+        --space-section: clamp(4.5rem, 3rem + 6vw, 8.5rem);
+        --maxw: 1160px;
+
+        --radius: 4px;
+        --radius-lg: 6px;
+
+        --dur: 550ms;
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
         }
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-    els.forEach(function (el) { io.observe(el); });
-  })();
-</script>
-</body>
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: var(--text-body);
+        line-height: 1.62;
+        color: var(--text);
+        background:
+          radial-gradient(120% 80% at 85% -8%, rgba(182, 255, 58, 0.07), transparent 52%),
+          radial-gradient(90% 60% at 8% 4%, rgba(94, 230, 196, 0.045), transparent 50%),
+          linear-gradient(180deg, var(--void) 0%, var(--base) 24%, var(--base) 100%);
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 600;
+        line-height: 1.05;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 0;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: var(--maxw);
+        margin-inline: auto;
+        padding-inline: clamp(1.2rem, 5vw, 2.5rem);
+      }
+
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: var(--text-eyebrow);
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--lime);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7em;
+      }
+      .eyebrow::before {
+        content: '';
+        width: 1.7em;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--lime));
+      }
+
+      .lead {
+        font-size: var(--text-lead);
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+
+      /* ---------- Buttons ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6em;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 0.96rem;
+        letter-spacing: 0.01em;
+        padding: 0.82em 1.5em;
+        border-radius: var(--radius);
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition:
+          transform var(--dur) var(--ease),
+          background-color 200ms ease,
+          box-shadow 200ms ease,
+          border-color 200ms ease;
+        will-change: transform;
+      }
+      .btn-primary {
+        background: var(--lime);
+        color: #0a1400;
+        box-shadow:
+          0 0 0 1px var(--lime-line),
+          0 10px 30px rgba(182, 255, 58, 0.18);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 0 0 1px var(--lime),
+          0 16px 40px rgba(182, 255, 58, 0.3);
+      }
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+      .btn-ghost {
+        background: rgba(176, 196, 190, 0.04);
+        color: var(--text);
+        border-color: var(--hairline-strong);
+      }
+      .btn-ghost:hover {
+        background: rgba(176, 196, 190, 0.08);
+        border-color: var(--lime-line);
+        transform: translateY(-2px);
+      }
+      .btn-ghost:active {
+        transform: translateY(0);
+      }
+
+      a:focus-visible,
+      button:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--lime);
+        outline-offset: 3px;
+        border-radius: 3px;
+      }
+
+      /* status pill (non-functional, honest) */
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7em;
+        padding: 0.65em 1.1em;
+        border-radius: var(--radius);
+        border: 1px solid var(--hairline-strong);
+        background: rgba(7, 10, 13, 0.55);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        transition:
+          transform var(--dur) var(--ease),
+          border-color 200ms ease;
+      }
+      .status:hover {
+        transform: translateY(-2px);
+        border-color: var(--lime-line);
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--lime);
+        box-shadow: 0 0 0 4px var(--lime-soft);
+        flex: none;
+      }
+      .dot.pulse {
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      /* ---------- Header ---------- */
+      header.site {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(14px);
+        background: linear-gradient(180deg, rgba(7, 10, 13, 0.86), rgba(7, 10, 13, 0.45));
+        border-bottom: 1px solid var(--hairline);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-block: 0.95rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6em;
+        font-family: var(--display);
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .brand .mark {
+        width: 28px;
+        height: 28px;
+        flex: none;
+      }
+      .nav-links {
+        display: flex;
+        gap: 1.7rem;
+        align-items: center;
+      }
+      .nav-links a {
+        font-size: 0.9rem;
+        color: var(--text-dim);
+        transition: color 180ms ease;
+      }
+      .nav-links a:hover {
+        color: var(--text);
+      }
+      .nav-cta {
+        font-weight: 600;
+        color: var(--lime) !important;
+        font-family: var(--display);
+      }
+      @media (max-width: 760px) {
+        .nav-links a:not(.nav-cta) {
+          display: none;
+        }
+      }
+
+      /* ---------- Hero ---------- */
+      .hero {
+        position: relative;
+        padding-top: clamp(2.6rem, 2rem + 4vw, 5rem);
+        padding-bottom: var(--space-section);
+        overflow: hidden;
+      }
+      .grid-bg {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.5;
+        background-image:
+          linear-gradient(var(--hairline) 1px, transparent 1px),
+          linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(80% 70% at 50% 30%, #000 30%, transparent 80%);
+        -webkit-mask-image: radial-gradient(80% 70% at 50% 30%, #000 30%, transparent 80%);
+      }
+      .hero-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1.04fr 0.96fr;
+        gap: clamp(2rem, 4vw, 4rem);
+        align-items: center;
+      }
+      @media (max-width: 920px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      h1 {
+        font-size: var(--text-hero);
+        font-weight: 600;
+        margin-bottom: 1.1rem;
+      }
+      h1 em {
+        font-style: normal;
+        color: var(--lime);
+      }
+      .hero p.lead {
+        max-width: 44ch;
+        margin-bottom: 2rem;
+      }
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem;
+        align-items: center;
+        margin-bottom: 2.1rem;
+      }
+
+      .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.6rem 2.4rem;
+        padding-top: 1.6rem;
+        border-top: 1px solid var(--hairline);
+      }
+      .stat .k {
+        font-family: var(--display);
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.02em;
+      }
+      .stat .k span {
+        color: var(--lime);
+      }
+      .stat .l {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        margin-top: 0.15rem;
+      }
+
+      .hero-visual {
+        position: relative;
+        display: flex;
+        justify-content: center;
+      }
+      .radar-card {
+        position: relative;
+        width: min(460px, 100%);
+        aspect-ratio: 1 / 1;
+      }
+      .radar-glow {
+        position: absolute;
+        inset: 4%;
+        border-radius: 50%;
+        background: radial-gradient(circle at 62% 38%, rgba(182, 255, 58, 0.16), transparent 62%);
+        filter: blur(10px);
+        z-index: 0;
+      }
+      .sweepline {
+        transform-box: fill-box;
+        transform-origin: 200px 200px;
+      }
+      @keyframes sweep {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .sweep-anim {
+        animation: sweep 7s linear infinite;
+        transform-box: view-box;
+        transform-origin: 200px 200px;
+      }
+      .blip {
+        animation: blip 3.6s ease-in-out infinite;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      @keyframes blip {
+        0%,
+        100% {
+          opacity: 0.35;
+        }
+        45% {
+          opacity: 1;
+        }
+      }
+
+      /* ---------- Section scaffolding ---------- */
+      section {
+        position: relative;
+      }
+      .section-pad {
+        padding-block: var(--space-section);
+      }
+      .section-head {
+        max-width: 60ch;
+        margin-bottom: clamp(2.4rem, 4vw, 3.8rem);
+      }
+      .section-head h2 {
+        font-size: var(--text-h2);
+        margin-block: 0.6rem 1rem;
+      }
+      .section-head p {
+        color: var(--text-dim);
+      }
+
+      .rule {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--hairline-strong), transparent);
+      }
+
+      /* ---------- Promise band (signal feed) ---------- */
+      .promise {
+        background:
+          radial-gradient(70% 120% at 100% 0%, rgba(182, 255, 58, 0.06), transparent 60%),
+          var(--void);
+        border-block: 1px solid var(--hairline);
+      }
+      .promise-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(2rem, 5vw, 4.2rem);
+        align-items: center;
+      }
+      @media (max-width: 880px) {
+        .promise-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .promise blockquote {
+        margin: 0;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: clamp(1.55rem, 1.1rem + 2.2vw, 2.5rem);
+        line-height: 1.18;
+        letter-spacing: -0.02em;
+      }
+      .promise blockquote .hl {
+        color: var(--lime);
+      }
+
+      /* live signal feed visual */
+      .feed {
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, var(--slate-2), var(--slate));
+        overflow: hidden;
+      }
+      .feed-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--hairline);
+        font-family: var(--mono);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        color: var(--text-faint);
+        text-transform: uppercase;
+      }
+      .feed-bar .dot {
+        width: 7px;
+        height: 7px;
+        box-shadow: 0 0 0 3px var(--lime-soft);
+      }
+      .feed-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 0.9rem;
+        align-items: start;
+        padding: 0.95rem 1rem;
+        border-bottom: 1px solid var(--hairline);
+      }
+      .feed-row:last-child {
+        border-bottom: none;
+      }
+      .feed-tag {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.25em 0.55em;
+        border-radius: 3px;
+        border: 1px solid var(--lime-line);
+        color: var(--lime);
+        white-space: nowrap;
+        margin-top: 0.1rem;
+      }
+      .feed-tag.muted {
+        color: var(--text-faint);
+        border-color: var(--hairline-strong);
+      }
+      .feed-row .body {
+        min-width: 0;
+      }
+      .feed-row .body b {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .feed-row .body small {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--text-faint);
+        margin-top: 0.2rem;
+        word-break: break-word;
+      }
+      .feed-row .when {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--text-faint);
+        white-space: nowrap;
+        margin-top: 0.1rem;
+      }
+
+      /* ---------- Features (bento) ---------- */
+      .bento {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1.1rem;
+      }
+      .card {
+        position: relative;
+        background: linear-gradient(180deg, var(--slate-2), rgba(14, 20, 26, 0.65));
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-lg);
+        padding: clamp(1.5rem, 2.5vw, 2.1rem);
+        transition:
+          transform var(--dur) var(--ease),
+          border-color 250ms ease,
+          box-shadow 250ms ease;
+        overflow: hidden;
+      }
+      .card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--lime-line), transparent);
+        opacity: 0;
+        transition: opacity 250ms ease;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: var(--hairline-strong);
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+      }
+      .card:hover::before {
+        opacity: 1;
+      }
+      .card .kicker {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--lime);
+        font-weight: 500;
+      }
+      .card h3 {
+        font-size: var(--text-h3);
+        margin-block: 0.7rem 0.55rem;
+      }
+      .card p {
+        color: var(--text-dim);
+        font-size: 0.95rem;
+      }
+      .card .visual {
+        margin-top: 1.35rem;
+      }
+
+      .col-3 {
+        grid-column: span 3;
+      }
+      .col-2 {
+        grid-column: span 2;
+      }
+      .col-4 {
+        grid-column: span 4;
+      }
+      .col-6 {
+        grid-column: span 6;
+      }
+      @media (max-width: 900px) {
+        .col-3,
+        .col-2,
+        .col-4 {
+          grid-column: span 3;
+        }
+        .bento {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (max-width: 640px) {
+        .bento {
+          grid-template-columns: 1fr;
+        }
+        .col-3,
+        .col-2,
+        .col-4,
+        .col-6 {
+          grid-column: 1 / -1;
+        }
+      }
+
+      .card.accent {
+        background: linear-gradient(150deg, rgba(182, 255, 58, 0.09), var(--slate-2) 58%);
+        border-color: var(--lime-line);
+      }
+
+      /* materiality meter */
+      .meter {
+        margin-top: 1.3rem;
+      }
+      .meter-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(176, 196, 190, 0.07);
+        position: relative;
+        overflow: hidden;
+      }
+      .meter-fill {
+        position: absolute;
+        inset: 0 26% 0 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--lime-deep), var(--lime));
+      }
+      .meter-labels {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--text-faint);
+        margin-top: 0.5rem;
+      }
+
+      /* source chips */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 1.3rem;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        padding: 0.32em 0.7em;
+        border-radius: 3px;
+        border: 1px solid var(--hairline-strong);
+        color: var(--text-dim);
+        background: rgba(176, 196, 190, 0.03);
+      }
+      .chip.on {
+        color: #0a1400;
+        background: var(--lime);
+        border-color: var(--lime);
+        font-weight: 600;
+      }
+
+      /* citation pin sample */
+      .cite {
+        margin-top: 1.3rem;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        border: 1px solid var(--hairline-strong);
+        border-left: 2px solid var(--lime);
+        border-radius: 3px;
+        padding: 0.7rem 0.85rem;
+        color: var(--text-dim);
+      }
+      .cite .q {
+        color: var(--text);
+      }
+      .cite .src {
+        display: block;
+        color: var(--text-faint);
+        margin-top: 0.4rem;
+        font-size: 0.72rem;
+        word-break: break-all;
+      }
+
+      /* ---------- How it works ---------- */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+      @media (max-width: 820px) {
+        .steps {
+          grid-template-columns: 1fr;
+        }
+      }
+      .step {
+        padding-top: 1.3rem;
+        border-top: 1px solid var(--hairline-strong);
+      }
+      .step .num {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        letter-spacing: 0.1em;
+        color: var(--lime);
+      }
+      .step h3 {
+        font-family: var(--display);
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin-block: 0.55rem 0.5rem;
+      }
+      .step p {
+        color: var(--text-dim);
+        font-size: 0.94rem;
+      }
+
+      /* ---------- Pricing ---------- */
+      .price-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.3rem;
+        align-items: stretch;
+      }
+      @media (max-width: 880px) {
+        .price-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .plan {
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-lg);
+        padding: 2rem clamp(1.5rem, 2.4vw, 2.1rem);
+        background: linear-gradient(180deg, var(--slate-2), rgba(14, 20, 26, 0.55));
+        display: flex;
+        flex-direction: column;
+      }
+      .plan.feature {
+        border-color: var(--lime-line);
+        background: linear-gradient(180deg, rgba(182, 255, 58, 0.09), var(--slate-2) 52%);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      }
+      .plan .tag {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 500;
+        color: var(--text-faint);
+      }
+      .plan.feature .tag {
+        color: var(--lime);
+      }
+      .plan h3 {
+        font-family: var(--display);
+        font-size: 1.4rem;
+        margin-block: 0.55rem 0.25rem;
+      }
+      .plan .amt {
+        font-family: var(--display);
+        font-size: 2.4rem;
+        font-weight: 700;
+        margin-block: 0.7rem 0.2rem;
+        letter-spacing: -0.02em;
+      }
+      .plan .amt span {
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--text-faint);
+        font-weight: 400;
+      }
+      .plan .sub {
+        color: var(--text-dim);
+        font-size: 0.9rem;
+        min-height: 3.2em;
+      }
+      .plan ul {
+        list-style: none;
+        margin: 1.3rem 0 1.8rem;
+        padding: 0;
+        display: grid;
+        gap: 0.7rem;
+      }
+      .plan li {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.65rem;
+        font-size: 0.91rem;
+        color: var(--text);
+      }
+      .plan li svg {
+        margin-top: 0.28em;
+        flex: none;
+      }
+      .plan .foot {
+        margin-top: auto;
+      }
+      .price-note {
+        text-align: center;
+        margin-top: 1.7rem;
+        color: var(--text-faint);
+        font-size: 0.85rem;
+        font-family: var(--mono);
+      }
+
+      /* ---------- FAQ ---------- */
+      .faq {
+        display: grid;
+        gap: 0.85rem;
+        max-width: 840px;
+      }
+      details {
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius);
+        background: var(--slate);
+        padding: 0.3rem 1.3rem;
+        transition: border-color 200ms ease;
+      }
+      details[open] {
+        border-color: var(--hairline-strong);
+      }
+      summary {
+        cursor: pointer;
+        list-style: none;
+        padding-block: 1.05rem;
+        font-family: var(--display);
+        font-size: 1.08rem;
+        font-weight: 500;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary .plus {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        position: relative;
+        transition: transform 300ms var(--ease);
+      }
+      summary .plus::before,
+      summary .plus::after {
+        content: '';
+        position: absolute;
+        background: var(--lime);
+        border-radius: 2px;
+      }
+      summary .plus::before {
+        top: 9px;
+        left: 1px;
+        right: 1px;
+        height: 2px;
+      }
+      summary .plus::after {
+        left: 9px;
+        top: 1px;
+        bottom: 1px;
+        width: 2px;
+      }
+      details[open] summary .plus {
+        transform: rotate(135deg);
+      }
+      details p {
+        color: var(--text-dim);
+        padding-bottom: 1.15rem;
+        font-size: 0.96rem;
+      }
+
+      /* ---------- Final CTA ---------- */
+      .final {
+        text-align: center;
+      }
+      .final-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-lg);
+        padding: clamp(2.5rem, 5vw, 4.5rem) 1.5rem;
+        background:
+          radial-gradient(90% 130% at 50% 0%, rgba(182, 255, 58, 0.12), transparent 60%),
+          var(--slate-2);
+      }
+      .final-card .grid-bg {
+        opacity: 0.4;
+      }
+      .final-card h2 {
+        position: relative;
+        z-index: 1;
+        font-size: var(--text-h2);
+        margin-bottom: 1rem;
+      }
+      .final-card p {
+        position: relative;
+        z-index: 1;
+        color: var(--text-dim);
+        max-width: 50ch;
+        margin: 0 auto 2rem;
+      }
+      .final-actions {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        gap: 0.9rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      /* ---------- Footer ---------- */
+      footer.site {
+        border-top: 1px solid var(--hairline);
+        padding-block: 3rem 2.5rem;
+        color: var(--text-faint);
+      }
+      .foot-top {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+      .foot-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.55em;
+        font-family: var(--display);
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .foot-links {
+        display: flex;
+        gap: 1.4rem;
+        flex-wrap: wrap;
+      }
+      .foot-links a {
+        font-size: 0.88rem;
+        color: var(--text-dim);
+        transition: color 180ms ease;
+      }
+      .foot-links a:hover {
+        color: var(--text);
+      }
+      .disclaimer {
+        font-size: 0.81rem;
+        line-height: 1.6;
+        max-width: 76ch;
+        border-top: 1px solid var(--hairline);
+        padding-top: 1.5rem;
+      }
+
+      /* ---------- Scroll reveal ---------- */
+      .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition:
+          opacity 700ms var(--ease),
+          transform 700ms var(--ease);
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal {
+          opacity: 1 !important;
+          transform: none !important;
+          transition: none;
+        }
+        .sweep-anim,
+        .blip,
+        .dot.pulse {
+          animation: none !important;
+        }
+        .btn,
+        .card,
+        .status,
+        .plan {
+          transition: none;
+        }
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+      }
+    </style>
+    <script
+      data-goatcounter="https://asmuelle.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <a href="#main" class="visually-hidden">Skip to content</a>
+
+    <!-- ===== Header ===== -->
+    <header class="site">
+      <div class="wrap nav">
+        <a class="brand" href="#top" aria-label="Flank home">
+          <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <rect width="32" height="32" rx="6" fill="#0E141A" />
+            <circle cx="16" cy="16" r="11" stroke="#1F2C36" stroke-width="1.4" />
+            <circle cx="16" cy="16" r="5.5" stroke="#1F2C36" stroke-width="1.4" />
+            <path d="M16 16 L27 16 A11 11 0 0 0 21 6 Z" fill="#B6FF3A" fill-opacity="0.32" />
+            <line x1="16" y1="16" x2="27" y2="16" stroke="#B6FF3A" stroke-width="1.6" />
+            <circle cx="21" cy="11" r="1.9" fill="#B6FF3A" />
+          </svg>
+          Flank
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+          <a href="#waitlist" class="nav-cta">Join the waitlist</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <span id="top"></span>
+
+      <!-- ===== Hero ===== -->
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="grid-bg" aria-hidden="true"></div>
+        <div class="wrap hero-grid">
+          <div class="hero-copy reveal">
+            <p class="eyebrow">Competitive intelligence · B2B SaaS</p>
+            <h1 id="hero-heading">
+              The living competitor radar. <em>What changed</em>, why it matters, how to respond.
+            </h1>
+            <p class="lead">
+              Flank runs always-on agents that maintain versioned, citation-pinned dossiers and
+              self-refreshing battlecards per rival — then pushes only the material deltas to Slack
+              and your inbox. Synthesis with memory, not another alert firehose.
+            </p>
+
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#waitlist">Join the waitlist</a>
+              <a class="btn btn-ghost" href="#how">See how it works</a>
+            </div>
+
+            <div class="status" role="note">
+              <span class="dot pulse" aria-hidden="true"></span>
+              <span
+                >Status: pre-launch — building the radar.
+                <b style="color: var(--lime)">Coming soon.</b></span
+              >
+            </div>
+
+            <div class="hero-stats" aria-label="At a glance">
+              <div class="stat">
+                <div class="k">$79<span>–</span>449</div>
+                <div class="l">/mo self-serve</div>
+              </div>
+              <div class="stat">
+                <div class="k"><span>1</span>00%</div>
+                <div class="l">claims citation-pinned</div>
+              </div>
+              <div class="stat">
+                <div class="k">Δ-only</div>
+                <div class="l">material deltas, no noise</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-visual reveal">
+            <div class="radar-card">
+              <div class="radar-glow" aria-hidden="true"></div>
+              <!-- Signature: competitive radar / positioning sweep -->
+              <svg
+                viewBox="0 0 400 400"
+                role="img"
+                aria-label="A competitive radar showing tracked rivals as blips at varying distances, with a rotating scan sweep and a highlighted material delta on the inner ring."
+                style="position: relative; z-index: 1; width: 100%; height: auto"
+              >
+                <defs>
+                  <radialGradient id="sweepG" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#B6FF3A" stop-opacity="0.0" />
+                    <stop offset="100%" stop-color="#B6FF3A" stop-opacity="0.35" />
+                  </radialGradient>
+                  <linearGradient id="ringG" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#5EE6C4" stop-opacity="0.5" />
+                    <stop offset="100%" stop-color="#B6FF3A" stop-opacity="0.5" />
+                  </linearGradient>
+                </defs>
+
+                <!-- rings -->
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="168"
+                  fill="none"
+                  stroke="rgba(176,196,190,0.16)"
+                  stroke-width="1.2"
+                />
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="124"
+                  fill="none"
+                  stroke="rgba(176,196,190,0.13)"
+                  stroke-width="1.2"
+                />
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="80"
+                  fill="none"
+                  stroke="rgba(176,196,190,0.13)"
+                  stroke-width="1.2"
+                />
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="36"
+                  fill="none"
+                  stroke="rgba(176,196,190,0.20)"
+                  stroke-width="1.2"
+                />
+                <!-- crosshairs -->
+                <line
+                  x1="200"
+                  y1="20"
+                  x2="200"
+                  y2="380"
+                  stroke="rgba(176,196,190,0.12)"
+                  stroke-width="1"
+                />
+                <line
+                  x1="20"
+                  y1="200"
+                  x2="380"
+                  y2="200"
+                  stroke="rgba(176,196,190,0.12)"
+                  stroke-width="1"
+                />
+                <line
+                  x1="83"
+                  y1="83"
+                  x2="317"
+                  y2="317"
+                  stroke="rgba(176,196,190,0.07)"
+                  stroke-width="1"
+                />
+                <line
+                  x1="83"
+                  y1="317"
+                  x2="317"
+                  y2="83"
+                  stroke="rgba(176,196,190,0.07)"
+                  stroke-width="1"
+                />
+
+                <!-- rotating sweep -->
+                <g class="sweep-anim">
+                  <path d="M200 200 L368 200 A168 168 0 0 0 296 55 Z" fill="url(#sweepG)" />
+                  <line
+                    class="sweepline"
+                    x1="200"
+                    y1="200"
+                    x2="368"
+                    y2="200"
+                    stroke="#B6FF3A"
+                    stroke-width="2"
+                  />
+                </g>
+
+                <!-- material-delta arc on inner ring -->
+                <path
+                  d="M 200 76 A 124 124 0 0 1 308 138"
+                  fill="none"
+                  stroke="url(#ringG)"
+                  stroke-width="5"
+                  stroke-linecap="round"
+                />
+
+                <!-- blips: tracked competitors -->
+                <g>
+                  <circle
+                    class="blip"
+                    style="animation-delay: 0s"
+                    cx="266"
+                    cy="142"
+                    r="5.5"
+                    fill="#B6FF3A"
+                  />
+                  <circle
+                    class="blip"
+                    style="animation-delay: 0.8s"
+                    cx="132"
+                    cy="246"
+                    r="4.5"
+                    fill="#B6FF3A"
+                  />
+                  <circle
+                    class="blip"
+                    style="animation-delay: 1.6s"
+                    cx="238"
+                    cy="288"
+                    r="4"
+                    fill="#B6FF3A"
+                  />
+                  <circle
+                    class="blip"
+                    style="animation-delay: 0.4s"
+                    cx="150"
+                    cy="120"
+                    r="4"
+                    fill="#5EE6C4"
+                  />
+                  <circle
+                    class="blip"
+                    style="animation-delay: 2.2s"
+                    cx="300"
+                    cy="244"
+                    r="3.6"
+                    fill="#5EE6C4"
+                  />
+                  <circle
+                    class="blip"
+                    style="animation-delay: 1.2s"
+                    cx="118"
+                    cy="180"
+                    r="3.2"
+                    fill="#5EE6C4"
+                  />
+                </g>
+
+                <!-- center node (you) -->
+                <circle cx="200" cy="200" r="7" fill="#EAF2EC" />
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="13"
+                  fill="none"
+                  stroke="#B6FF3A"
+                  stroke-width="1.4"
+                  opacity="0.8"
+                />
+
+                <!-- delta callout -->
+                <g>
+                  <line
+                    x1="266"
+                    y1="142"
+                    x2="332"
+                    y2="108"
+                    stroke="rgba(176,196,190,0.3)"
+                    stroke-width="1"
+                  />
+                  <rect
+                    x="284"
+                    y="78"
+                    width="98"
+                    height="34"
+                    rx="3"
+                    fill="#0E141A"
+                    stroke="var(--lime-line, rgba(182,255,58,0.32))"
+                    stroke-width="1"
+                  />
+                  <text
+                    x="294"
+                    y="93"
+                    fill="#B6FF3A"
+                    font-family="'JetBrains Mono', monospace"
+                    font-size="9"
+                    letter-spacing="1"
+                  >
+                    PRICING Δ
+                  </text>
+                  <text
+                    x="294"
+                    y="105"
+                    fill="#9FB0AB"
+                    font-family="'JetBrains Mono', monospace"
+                    font-size="8"
+                  >
+                    +18% · verified
+                  </text>
+                </g>
+
+                <!-- caption -->
+                <text
+                  x="200"
+                  y="392"
+                  text-anchor="middle"
+                  fill="#6E817C"
+                  font-family="'JetBrains Mono', monospace"
+                  font-size="10"
+                  letter-spacing="2"
+                >
+                  SCANNING 412 SOURCES · 15 RIVALS TRACKED
+                </text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Promise band: signal feed ===== -->
+      <section id="promise" class="promise section-pad" aria-labelledby="promise-heading">
+        <div class="wrap promise-grid">
+          <div class="reveal">
+            <p class="eyebrow">The promise</p>
+            <h2 id="promise-heading" class="visually-hidden">What Flank delivers</h2>
+            <blockquote>
+              Delta over <span class="hl">deluge.</span> Memory over one-shot. Provenance over
+              <span class="hl">vibes.</span>
+            </blockquote>
+            <p class="lead" style="margin-top: 1.5rem; max-width: 44ch">
+              Google Alerts buries you in noise. One-shot ChatGPT research forgets everything
+              between runs. Flank watches continuously, remembers what it saw, and only interrupts
+              you when something genuinely material moves — with the quote and URL to back it up.
+            </p>
+          </div>
+          <div
+            class="feed reveal"
+            role="img"
+            aria-label="An illustrative signal feed showing classified competitor deltas: a pricing change, a feature launch, and a hiring signal, each with a source citation."
+          >
+            <div class="feed-bar">
+              <span class="dot pulse" aria-hidden="true"></span> Signal feed · illustrative
+            </div>
+            <div class="feed-row">
+              <span class="feed-tag">Pricing Δ</span>
+              <div class="body">
+                <b>Rival raised Pro tier +18%</b
+                ><small>"$24/seat/mo" → quote pinned at extraction · span-verified</small>
+              </div>
+              <span class="when">2h</span>
+            </div>
+            <div class="feed-row">
+              <span class="feed-tag">Launch</span>
+              <div class="body">
+                <b>Shipped an AI summarizer to GA</b
+                ><small>changelog diff · cross-referenced to docs update</small>
+              </div>
+              <span class="when">9h</span>
+            </div>
+            <div class="feed-row">
+              <span class="feed-tag muted">Hiring</span>
+              <div class="body">
+                <b>3 enterprise AE roles opened</b
+                ><small>Greenhouse JSON · down-market push signal</small>
+              </div>
+              <span class="when">1d</span>
+            </div>
+            <div class="feed-row">
+              <span class="feed-tag muted">Quiet</span>
+              <div class="body">
+                <b>412 sources checked, nothing material</b
+                ><small>negative-space report · QoQ trendline attached</small>
+              </div>
+              <span class="when">wk</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Features (bento) ===== -->
+      <section id="features" class="section-pad" aria-labelledby="features-heading">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <p class="eyebrow">What Flank does</p>
+            <h2 id="features-heading">
+              A standing agent per rival, watching a fixed source graph — built for trust, not just
+              alerts.
+            </h2>
+            <p>
+              Every delta is classified for materiality, every claim pinned to a quote and URL,
+              every battlecard regenerated only where it actually changed.
+            </p>
+          </div>
+
+          <div class="bento">
+            <article class="card col-3 reveal">
+              <span class="kicker">Living dossiers</span>
+              <h3>Versioned, never wiped</h3>
+              <p>
+                Each competitor gets a standing agent and a longitudinal change timeline — pricing
+                archaeology, feature history, hiring trajectory. The record only exists if you were
+                watching, and Flank always was.
+              </p>
+              <div class="visual chips">
+                <span class="chip on">v18</span><span class="chip">v17</span
+                ><span class="chip">v16</span><span class="chip">…</span
+                ><span class="chip">v1</span>
+              </div>
+            </article>
+
+            <article class="card col-3 reveal">
+              <span class="kicker">Materiality triage</span>
+              <h3>Only what moves the needle</h3>
+              <p>
+                Content-hash diffing means the model only ever sees changed content. A fast triage
+                pass scores each delta — pricing change, feature launch, repositioning, leadership
+                hire, hiring signal — so noise never reaches your team.
+              </p>
+              <div class="visual meter" aria-hidden="true">
+                <div class="meter-track"><div class="meter-fill"></div></div>
+                <div class="meter-labels"><span>noise</span><span>MATERIAL · escalate</span></div>
+              </div>
+            </article>
+
+            <article class="card col-4 reveal">
+              <span class="kicker">Citation pinning</span>
+              <h3>Every claim pinned to a quote and URL — span-verified before publish</h3>
+              <p>
+                Each fact is extracted with its exact quote, source URL, and timestamp, then
+                string-verified against the stored snapshot before it's ever shown. A direct attack
+                on the citation-misattribution problem that makes reps distrust CI tools.
+              </p>
+              <div class="visual cite">
+                <span class="q">"Team plan now includes SSO and SCIM at no extra cost."</span>
+                <span class="src"
+                  >↳ rival.com/pricing · captured 2026-06-18 14:02 UTC · span ✓</span
+                >
+              </div>
+            </article>
+
+            <article class="card col-2 accent reveal">
+              <span class="kicker">Battlecards</span>
+              <h3>Self-refreshing, surgical</h3>
+              <p>
+                One nightly frontier pass regenerates only the affected battlecard sections — never
+                the whole artifact — so your sales answers stay current without churn.
+              </p>
+            </article>
+
+            <article class="card col-6 reveal">
+              <span class="kicker">Where your team lives</span>
+              <h3>Deltas land in Slack and the inbox — and on the deal record</h3>
+              <p>
+                Material changes arrive as a Slack alert and an email digest, because intelligence
+                that doesn't reach the team becomes the Google Alerts failure mode. Deal-context
+                alerts can fire when a tracked competitor attaches to an open CRM opportunity, with
+                a HubSpot/Salesforce sidebar and Notion export at the Team tier.
+              </p>
+              <div class="visual chips">
+                <span class="chip on">Slack</span><span class="chip on">Email digest</span
+                ><span class="chip">CRM sidebar</span><span class="chip">Notion export</span
+                ><span class="chip">Change timeline</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <div class="wrap"><div class="rule reveal" aria-hidden="true"></div></div>
+
+      <!-- ===== How it works ===== -->
+      <section id="how" class="section-pad" aria-labelledby="how-heading">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <p class="eyebrow">How it works</p>
+            <h2 id="how-heading">Three moves. The agents do the standing watch.</h2>
+          </div>
+          <div class="steps">
+            <div class="step reveal">
+              <div class="num">STEP 01</div>
+              <h3>Name your rivals</h3>
+              <p>
+                Add the competitors that matter. Flank stands up a per-competitor agent over a fixed
+                source graph — pricing pages, changelogs, docs, job boards, review streams, status
+                pages, blog and PR feeds.
+              </p>
+            </div>
+            <div class="step reveal">
+              <div class="num">STEP 02</div>
+              <h3>The radar watches</h3>
+              <p>
+                Content-hash diffing surfaces only changed spans; a triage pass classifies each
+                delta for materiality; a nightly pass updates the dossier and regenerates only the
+                affected battlecard sections — every claim pinned and verified.
+              </p>
+            </div>
+            <div class="step reveal">
+              <div class="num">STEP 03</div>
+              <h3>You act on the delta</h3>
+              <p>
+                Material changes arrive in Slack and your inbox with what changed, why it matters,
+                and how to respond. Quiet week? You still get a "412 sources checked, nothing
+                material" report with the trendline.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Pricing ===== -->
+      <section id="pricing" class="promise section-pad" aria-labelledby="pricing-heading">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <p class="eyebrow">Pricing</p>
+            <h2 id="pricing-heading">
+              Self-serve, bottom-up — the synthesis-with-memory tier the enterprise leaves empty.
+            </h2>
+            <p>
+              Three plans. Growth is the anchor. Extra competitors are $10/mo each. Annual prepay
+              runs two months free.
+            </p>
+          </div>
+
+          <div class="price-grid">
+            <div class="plan reveal">
+              <span class="tag">Starter</span>
+              <h3>Starter</h3>
+              <div class="amt">$79<span> / mo</span></div>
+              <p class="sub">The wedge out of Google Alerts noise for founders and PMMs.</p>
+              <ul>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Up to 5 competitors tracked
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Email digest of material deltas
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Citation-pinned dossiers
+                </li>
+              </ul>
+              <div class="foot">
+                <a
+                  class="btn btn-ghost"
+                  href="#waitlist"
+                  style="width: 100%; justify-content: center"
+                  >Join the waitlist</a
+                >
+              </div>
+            </div>
+
+            <div class="plan feature reveal">
+              <span class="tag">Growth · most popular</span>
+              <h3>Growth</h3>
+              <div class="amt">$199<span> / mo</span></div>
+              <p class="sub">
+                The anchor tier — synthesis, Slack, and auto-maintained battlecards.
+              </p>
+              <ul>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#B6FF3A"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Up to 15 competitors tracked
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#B6FF3A"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Slack alerts on material deltas
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#B6FF3A"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Auto-maintained battlecards
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#B6FF3A"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Full change history &amp; timeline
+                </li>
+              </ul>
+              <div class="foot">
+                <a
+                  class="btn btn-primary"
+                  href="#waitlist"
+                  style="width: 100%; justify-content: center"
+                  >Join the waitlist</a
+                >
+              </div>
+            </div>
+
+            <div class="plan reveal">
+              <span class="tag">Team</span>
+              <h3>Team</h3>
+              <div class="amt">$449<span> / mo</span></div>
+              <p class="sub">CI as sales infrastructure — embedded in your CRM rituals.</p>
+              <ul>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Up to 40 competitors tracked
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >HubSpot / Salesforce sidebar
+                </li>
+                <li>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#9FB0AB"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Multi-seat, SSO &amp; API
+                </li>
+              </ul>
+              <div class="foot">
+                <a
+                  class="btn btn-ghost"
+                  href="#waitlist"
+                  style="width: 100%; justify-content: center"
+                  >Join the waitlist</a
+                >
+              </div>
+            </div>
+          </div>
+          <p class="price-note">
+            +$10/mo per extra competitor · annual prepay = 2 months free · prices indicative,
+            pre-launch
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== FAQ ===== -->
+      <section id="faq" class="section-pad" aria-labelledby="faq-heading">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <p class="eyebrow">Straight answers</p>
+            <h2 id="faq-heading">The honest questions, answered honestly.</h2>
+          </div>
+          <div class="faq reveal">
+            <details open>
+              <summary>
+                How is this different from ChatGPT or Perplexity scheduled research?<span
+                  class="plus"
+                  aria-hidden="true"
+                ></span>
+              </summary>
+              <p>
+                One-shot research regenerates today's snapshot and forgets it by the next run —
+                there's no cross-run memory and no "what changed since last time." Flank is built
+                around exactly that gap: versioned dossiers, content-hash diffing so the model only
+                sees what actually changed, and a longitudinal timeline per competitor. The
+                general-purpose tools are real and capable; Flank's bet is on memory, materiality
+                triage, and span-verified provenance, not on being a better one-shot researcher.
+              </p>
+            </details>
+            <details>
+              <summary>
+                How do you keep alerts trustworthy and avoid false deltas?<span
+                  class="plus"
+                  aria-hidden="true"
+                ></span>
+              </summary>
+              <p>
+                Every claim is extracted with its exact quote, source URL, and timestamp, then
+                string-verified against the stored snapshot before publish — so misattributed
+                citations don't ship. We're candid about the hard part: pricing pages are
+                A/B-tested, geo-personalized, and cookie-gated, and no monitoring tool can promise
+                perfect recall. Flank treats CI as a research and monitoring aid, surfaces its
+                evidence, and expects you to verify a material claim before acting on it in a live
+                deal.
+              </p>
+            </details>
+            <details>
+              <summary>
+                What does Flank actually monitor?<span class="plus" aria-hidden="true"></span>
+              </summary>
+              <p>
+                A fixed source graph per competitor: pricing pages, changelogs and release notes,
+                docs diffs, app-store listings, public job-board feeds (Greenhouse / Lever / Ashby),
+                review streams, status pages, and blog/PR/RSS, with new-page and news discovery on
+                top. Some sources are anti-bot-protected or contractually restricted, so coverage
+                varies by competitor and source — we'd rather be straight about that than
+                overpromise a single all-seeing crawler.
+              </p>
+            </details>
+            <details>
+              <summary>
+                When can I use it, and what does it cost?<span
+                  class="plus"
+                  aria-hidden="true"
+                ></span>
+              </summary>
+              <p>
+                Flank is pre-launch. The plan is three self-serve tiers — Starter $79/mo (5
+                competitors), Growth $199/mo (15 competitors, the anchor), and Team $449/mo (40
+                competitors, CRM sidebar, SSO, API) — with $10/mo per extra competitor and two
+                months free on annual prepay. Prices are indicative and may change before launch.
+                Join the waitlist and we'll let you know when early access opens.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Final CTA ===== -->
+      <section id="waitlist" class="section-pad final" aria-labelledby="get-heading">
+        <div class="wrap">
+          <div class="final-card reveal">
+            <div class="grid-bg" aria-hidden="true"></div>
+            <p class="eyebrow" style="justify-content: center">Flank · coming soon</p>
+            <h2 id="get-heading">Get on the radar before your competitors do.</h2>
+            <p>
+              Always-on dossiers, citation-pinned deltas, and battlecards that maintain themselves —
+              delivered where your team already works. Join the waitlist for early access.
+            </p>
+            <div class="final-actions">
+              <a class="btn btn-primary" href="#" aria-label="Join the waitlist — coming soon"
+                >Join the waitlist</a
+              >
+              <a class="btn btn-ghost" href="#how">How it works</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===== Footer ===== -->
+    <footer class="site">
+      <div class="wrap">
+        <div class="foot-top">
+          <div class="foot-brand">
+            <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="11" stroke="#1F2C36" stroke-width="1.4" />
+              <path d="M16 16 L27 16 A11 11 0 0 0 21 6 Z" fill="#B6FF3A" fill-opacity="0.32" />
+              <line x1="16" y1="16" x2="27" y2="16" stroke="#B6FF3A" stroke-width="1.6" />
+              <circle cx="21" cy="11" r="1.9" fill="#B6FF3A" />
+            </svg>
+            Flank
+          </div>
+          <nav class="foot-links" aria-label="Footer">
+            <a href="#how">How it works</a>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#faq">FAQ</a>
+            <a href="#waitlist">Join the waitlist</a>
+          </nav>
+        </div>
+        <p class="disclaimer">
+          Flank is a competitive-research and monitoring tool,
+          <strong>not a system of record</strong>. Deltas, materiality scores, and battlecards are
+          agent-generated estimates drawn from public sources, and source coverage varies — some
+          pages are anti-bot-protected, personalized, or contractually restricted. Citations are
+          pinned and span-verified to reduce misattribution, but Flank cannot guarantee completeness
+          or perfect recall. <strong>Verify any material claim before acting on it</strong>,
+          especially in a live deal. Flank is pre-launch; features and pricing are indicative and
+          subject to change. <br /><br />
+          © 2026 Flank. Synthesis with memory. Provenance over vibes.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Scroll-reveal, gated on reduced-motion. No external deps.
+      (function () {
+        var prefersReduced =
+          window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var els = document.querySelectorAll('.reveal');
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+          els.forEach(function (el) {
+            el.classList.add('in');
+          });
+          return;
+        }
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in');
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+        );
+        els.forEach(function (el) {
+          io.observe(el);
+        });
+      })();
+    </script>
+  </body>
 </html>

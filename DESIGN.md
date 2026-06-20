@@ -50,12 +50,12 @@ embedding, so every design decision below biases toward history integrity and tr
 
 ### Monorepo layout (pnpm workspace)
 
-| Package | Contents |
-|---|---|
-| `apps/web` | Next.js 15 App Router, TypeScript strict. Dossier library, change timeline, battlecard editor/viewer, source-graph settings, billing. |
-| `packages/core` | Pure TS, no I/O: entity types, span diff algorithms, materiality rule engine, citation verifier (exact-quote + offset string match), COGS meter. The most-tested package. |
-| `packages/pipeline` | Inngest functions: per-source fetch crons, diff jobs, triage calls, pricing-confirmation re-fetch, nightly synthesis batch, Slack/Resend delivery, coverage accounting. |
-| `packages/db` | Drizzle ORM schema, migrations, pgvector setup, append-only guards. |
+| Package             | Contents                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`          | Next.js 15 App Router, TypeScript strict. Dossier library, change timeline, battlecard editor/viewer, source-graph settings, billing.                                     |
+| `packages/core`     | Pure TS, no I/O: entity types, span diff algorithms, materiality rule engine, citation verifier (exact-quote + offset string match), COGS meter. The most-tested package. |
+| `packages/pipeline` | Inngest functions: per-source fetch crons, diff jobs, triage calls, pricing-confirmation re-fetch, nightly synthesis batch, Slack/Resend delivery, coverage accounting.   |
+| `packages/db`       | Drizzle ORM schema, migrations, pgvector setup, append-only guards.                                                                                                       |
 
 ### Scheduling choice: Inngest (over Temporal)
 
@@ -69,18 +69,18 @@ Revisit Temporal only if we need long-lived (>7 day) workflow state or migrate o
 
 All history tables are **append-only** (Invariant 5). Workspace-scoped throughout (Invariant 8).
 
-| Entity | Key fields |
-|---|---|
-| **workspace** | id, name, plan_tier (starter/growth/team), competitor_limit, stripe_customer_id, created_at |
-| **competitor** | id, workspace_id, name, primary_domain, aliases[], status (active/paused), created_at |
-| **source** | id, competitor_id, type (pricing/changelog/docs/jobs/reviews/status/blog/appstore), url_or_endpoint, adapter (rss/json/firecrawl/zyte), cadence (cron), legal_status (open/licensed/blocked), last_fetched_at, consecutive_failures |
-| **snapshot** | id, source_id, content_hash, s3_key (raw), normalized_text, fetched_at, vantage (region/context), http_status — append-only |
-| **delta** | id, source_id, from_snapshot_id, to_snapshot_id, changed_spans (jsonb: offsets + text), triage_class, materiality (0–3), state (pending/confirmed/dismissed/published), confirmed_by_snapshot_id (pricing), created_at — append-only |
-| **claim** | id, delta_id, snapshot_id, quote_text, char_start, char_end, source_url, captured_at, verified_at (null = unpublishable) |
-| **dossier_section** | id, competitor_id, kind (overview/pricing/product/gtm/team), version, content_md, claim_ids[], model + batch_id, supersedes_id — append-only versions |
-| **battlecard_section** | id, competitor_id, kind (why_we_win/landmines/pricing_counter/objections), version, content_md, claim_ids[], supersedes_id — append-only versions |
-| **alert** | id, workspace_id, delta_id, channel (slack/email/crm), payload, status (queued/delivered/failed), delivered_at |
-| **coverage_run** | id, workspace_id, period, sources_checked, fetch_failures, deltas_found, material_deltas, llm_cost_cents — feeds digest receipts and COGS metering |
+| Entity                 | Key fields                                                                                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **workspace**          | id, name, plan_tier (starter/growth/team), competitor_limit, stripe_customer_id, created_at                                                                                                                                          |
+| **competitor**         | id, workspace_id, name, primary_domain, aliases[], status (active/paused), created_at                                                                                                                                                |
+| **source**             | id, competitor_id, type (pricing/changelog/docs/jobs/reviews/status/blog/appstore), url_or_endpoint, adapter (rss/json/firecrawl/zyte), cadence (cron), legal_status (open/licensed/blocked), last_fetched_at, consecutive_failures  |
+| **snapshot**           | id, source_id, content_hash, s3_key (raw), normalized_text, fetched_at, vantage (region/context), http_status — append-only                                                                                                          |
+| **delta**              | id, source_id, from_snapshot_id, to_snapshot_id, changed_spans (jsonb: offsets + text), triage_class, materiality (0–3), state (pending/confirmed/dismissed/published), confirmed_by_snapshot_id (pricing), created_at — append-only |
+| **claim**              | id, delta_id, snapshot_id, quote_text, char_start, char_end, source_url, captured_at, verified_at (null = unpublishable)                                                                                                             |
+| **dossier_section**    | id, competitor_id, kind (overview/pricing/product/gtm/team), version, content_md, claim_ids[], model + batch_id, supersedes_id — append-only versions                                                                                |
+| **battlecard_section** | id, competitor_id, kind (why_we_win/landmines/pricing_counter/objections), version, content_md, claim_ids[], supersedes_id — append-only versions                                                                                    |
+| **alert**              | id, workspace_id, delta_id, channel (slack/email/crm), payload, status (queued/delivered/failed), delivered_at                                                                                                                       |
+| **coverage_run**       | id, workspace_id, period, sources_checked, fetch_failures, deltas_found, material_deltas, llm_cost_cents — feeds digest receipts and COGS metering                                                                                   |
 
 pgvector lives on `snapshot.normalized_text` embeddings (changed-span similarity, "have we
 seen this repositioning before") — an enhancement, not on the M1 critical path.
@@ -127,7 +127,7 @@ seen this repositioning before") — an enhancement, not on the M1 critical path
 morning brief, not a SaaS dashboard. Light paper surface (warm off-white, `oklch(97% 0.005 90)`),
 near-black ink text, and a disciplined signal system: one radar-blue accent for interactive
 elements, with delta semantics carried by color (red = pricing/threat, amber = repositioning,
-green = opportunity) used *only* on deltas, never decoratively. Typography pairing: a serif
+green = opportunity) used _only_ on deltas, never decoratively. Typography pairing: a serif
 display face (Source Serif 4) for dossier headlines and battlecard titles — gravitas, print-brief
 feel — over Inter for UI, with JetBrains Mono reserved for provenance metadata (hashes, URLs,
 timestamps, offsets) so evidence is visually distinct from synthesis. The change timeline is
@@ -175,10 +175,10 @@ COGS visible in an internal admin view.
 
 ## Risks & Mitigations (top 5, from the adversarial review)
 
-| # | Risk | Mitigation |
-|---|---|---|
-| 1 | **Platform substitution** — ChatGPT Tasks / Perplexity scheduled research covers the "regenerate a dossier" job; cross-run diffing is "a 1–2 sprint feature" for them | Make the timeline + span-verified provenance the hero from M1, not the dossier; embed in Slack rituals and CRM deal records (M2/M3) so switching means leaving workflows, not just a document; accumulate history they cannot backfill |
-| 2 | **Data access shrinkage** — Cloudflare blocks AI crawlers by default; G2/Capterra legally off-limits | Legal-first source graph (RSS/JSON/sitemaps cover most signal); Firecrawl/Zyte budgeted per account as fallback only; degraded sources surfaced honestly in coverage receipts instead of silently missing (turns a weakness into a trust feature) |
-| 3 | **False pricing alerts** — A/B-tested, geo-personalized pricing pages make false deltas the default failure mode, and one bad alert repeated in a live deal kills credibility | Pricing confirmation protocol (Flow 2): no single-fetch pricing alert ever; clean-context + multi-vantage re-fetch; dismissed flaps retained as evidence; invariant-level tests |
-| 4 | **Quiet-month churn** — a silent $199 Slack channel is the first cut in the month-6 tool audit | Annual prepay pushed hard (2 months free) matching how ex-Klue buyers budget; monthly state-of-the-field synthesis + per-digest coverage receipts demonstrate negative-space value; never inflate alert volume to fake liveliness |
-| 5 | **COGS underestimate** — pitched $8/account assumes free crawling; honest band is $15–30 with unblockers | COGS metered per account from M1 (`coverage_run.llm_cost_cents` + crawl spend); hash-gate enforcement keeps LLM spend proportional to actual change; Batch + prompt caching mandatory for synthesis; tier source-count limits sized against measured, not assumed, costs |
+| #   | Risk                                                                                                                                                                          | Mitigation                                                                                                                                                                                                                                                               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Platform substitution** — ChatGPT Tasks / Perplexity scheduled research covers the "regenerate a dossier" job; cross-run diffing is "a 1–2 sprint feature" for them         | Make the timeline + span-verified provenance the hero from M1, not the dossier; embed in Slack rituals and CRM deal records (M2/M3) so switching means leaving workflows, not just a document; accumulate history they cannot backfill                                   |
+| 2   | **Data access shrinkage** — Cloudflare blocks AI crawlers by default; G2/Capterra legally off-limits                                                                          | Legal-first source graph (RSS/JSON/sitemaps cover most signal); Firecrawl/Zyte budgeted per account as fallback only; degraded sources surfaced honestly in coverage receipts instead of silently missing (turns a weakness into a trust feature)                        |
+| 3   | **False pricing alerts** — A/B-tested, geo-personalized pricing pages make false deltas the default failure mode, and one bad alert repeated in a live deal kills credibility | Pricing confirmation protocol (Flow 2): no single-fetch pricing alert ever; clean-context + multi-vantage re-fetch; dismissed flaps retained as evidence; invariant-level tests                                                                                          |
+| 4   | **Quiet-month churn** — a silent $199 Slack channel is the first cut in the month-6 tool audit                                                                                | Annual prepay pushed hard (2 months free) matching how ex-Klue buyers budget; monthly state-of-the-field synthesis + per-digest coverage receipts demonstrate negative-space value; never inflate alert volume to fake liveliness                                        |
+| 5   | **COGS underestimate** — pitched $8/account assumes free crawling; honest band is $15–30 with unblockers                                                                      | COGS metered per account from M1 (`coverage_run.llm_cost_cents` + crawl spend); hash-gate enforcement keeps LLM spend proportional to actual change; Batch + prompt caching mandatory for synthesis; tier source-count limits sized against measured, not assumed, costs |
