@@ -53,7 +53,7 @@ export const createSequentialIds = (prefix: string): (() => string) => {
   };
 };
 
-const recordCoverage = async (
+export const recordCoverage = async (
   ctx: IngestContext,
   deps: IngestDeps,
   fetchedAt: Date,
@@ -149,6 +149,7 @@ export const ingestFetch = async (
   rawContent: string,
   fetchedAt: Date,
   deps: IngestDeps,
+  httpStatus = 200,
 ): Promise<IngestOutcome> => {
   if (ctx.source.legalStatus === 'blocked') {
     // Invariant 4: a blocked source degrades coverage visibly, it is never evaded.
@@ -182,7 +183,7 @@ export const ingestFetch = async (
       contentHash: hash,
       normalizedText,
       fetchedAt,
-      httpStatus: 200,
+      httpStatus,
       vantage: null,
     });
     if (previous === null) {

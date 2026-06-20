@@ -32,6 +32,13 @@ export default defineConfig({
           functions: 100,
           lines: 95,
         },
+        // SSRF / legal-source policy — the security boundary for the fetch layer.
+        '**/packages/core/src/net-policy.ts': {
+          statements: 95,
+          branches: 90,
+          functions: 100,
+          lines: 95,
+        },
       },
     },
   },
