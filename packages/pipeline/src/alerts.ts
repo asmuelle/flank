@@ -12,9 +12,10 @@ export interface AlertPayload {
 
 /**
  * Compose delta alerts: what changed (quote + link + timestamp) and why it
- * matters. Only `published` deltas alert; pricing deltas additionally require
- * `confirmed` state (M2 flow), so an unconfirmed pricing delta can never reach
- * a channel — Invariant 3, enforced twice (state machine + here).
+ * matters. Only `published` deltas alert; a published pricing delta must
+ * additionally carry a confirming snapshot (`confirmedBySnapshotId`), so a
+ * pricing change that never passed the confirmation firewall can never reach a
+ * channel — Invariant 3, enforced in depth (delta state machine + DB trigger + here).
  */
 export const composeAlerts = (
   deltas: readonly Delta[],
@@ -23,7 +24,11 @@ export const composeAlerts = (
 ): readonly AlertPayload[] =>
   Object.freeze(
     deltas
-      .filter((delta) => delta.state === 'published' && delta.triageClass !== 'pricing_change')
+      .filter(
+        (delta) =>
+          delta.state === 'published' &&
+          (delta.triageClass !== 'pricing_change' || delta.confirmedBySnapshotId !== null),
+      )
       .map((delta) => {
         const claims = claimsByDelta.get(delta.id) ?? [];
         const first = claims[0];

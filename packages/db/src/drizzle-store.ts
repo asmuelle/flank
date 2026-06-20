@@ -278,6 +278,15 @@ export class DrizzleFlankStore implements FlankStore {
     return rows[0] ? toSnapshot(rows[0]) : null;
   }
 
+  async getSnapshot(workspaceId: string, snapshotId: string): Promise<Snapshot | null> {
+    const rows = await this.db
+      .select()
+      .from(snapshots)
+      .where(and(eq(snapshots.id, snapshotId), eq(snapshots.workspaceId, workspaceId)))
+      .limit(1);
+    return rows[0] ? toSnapshot(rows[0]) : null;
+  }
+
   async insertDelta(workspaceId: string, delta: Delta): Promise<Delta> {
     await this.requireSourceInWorkspace(workspaceId, delta.sourceId);
     return this.insertOne(

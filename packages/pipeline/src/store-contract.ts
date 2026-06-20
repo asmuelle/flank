@@ -214,6 +214,16 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
       });
     });
 
+    describe('getSnapshot is workspace-scoped', () => {
+      it('returns a snapshot to its owner, null to other tenants and unknown ids', async () => {
+        await store.insertSnapshot(WS_A.id, snapshotOn(SRC_A.id, 'snap-x'));
+
+        expect((await store.getSnapshot(WS_A.id, 'snap-x'))?.id).toBe('snap-x');
+        expect(await store.getSnapshot(WS_B.id, 'snap-x')).toBeNull();
+        expect(await store.getSnapshot(WS_A.id, 'missing')).toBeNull();
+      });
+    });
+
     describe('workspace-scoped reads never leak (Invariant 8)', () => {
       beforeEach(async () => {
         await seedDelta(WS_A.id, SRC_A.id, 'd-a');

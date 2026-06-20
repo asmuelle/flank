@@ -68,11 +68,31 @@ describe('composeAlerts', () => {
     expect(alerts).toHaveLength(0);
   });
 
-  it('excludes pricing deltas even if marked published — double enforcement (Invariant 3)', () => {
-    const pricing = makeDelta({ id: 'd-4', triageClass: 'pricing_change', state: 'published' });
+  it('never alerts a published pricing delta that lacks a confirming snapshot (Invariant 3)', () => {
+    const unconfirmed = makeDelta({
+      id: 'd-4',
+      triageClass: 'pricing_change',
+      state: 'published',
+      confirmedBySnapshotId: null,
+    });
 
-    const alerts = composeAlerts([pricing], new Map(), COMPETITOR);
+    const alerts = composeAlerts([unconfirmed], new Map(), COMPETITOR);
 
     expect(alerts).toHaveLength(0);
+  });
+
+  it('alerts a published pricing delta once a confirmation snapshot backs it (Invariant 3)', () => {
+    const confirmed = makeDelta({
+      id: 'd-5',
+      triageClass: 'pricing_change',
+      state: 'published',
+      confirmedBySnapshotId: 'snap-confirm',
+    });
+    const claims = new Map([[confirmed.id, [makeClaim(confirmed.id)]]]);
+
+    const alerts = composeAlerts([confirmed], claims, COMPETITOR);
+
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].deltaId).toBe('d-5');
   });
 });

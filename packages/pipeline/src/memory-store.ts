@@ -125,6 +125,12 @@ export class MemoryFlankStore implements FlankStore {
     return lastId === undefined ? null : (this.state.snapshots.get(lastId) ?? null);
   }
 
+  async getSnapshot(workspaceId: string, snapshotId: string): Promise<Snapshot | null> {
+    const snapshot = this.state.snapshots.get(snapshotId);
+    if (!snapshot || this.workspaceIdForSource(snapshot.sourceId) !== workspaceId) return null;
+    return snapshot;
+  }
+
   async insertDelta(workspaceId: string, delta: Delta): Promise<Delta> {
     this.requireSourceInWorkspace(workspaceId, delta.sourceId);
     return this.insertUnique(this.state.deltas, delta, 'delta');

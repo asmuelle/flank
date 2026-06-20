@@ -114,6 +114,8 @@ export interface FlankStore {
 
   insertSnapshot(workspaceId: string, snapshot: Snapshot): Promise<Snapshot>;
   latestSnapshot(workspaceId: string, sourceId: string): Promise<Snapshot | null>;
+  /** Fetch a snapshot by id, workspace-scoped; null if missing or owned by another tenant. */
+  getSnapshot(workspaceId: string, snapshotId: string): Promise<Snapshot | null>;
 
   insertDelta(workspaceId: string, delta: Delta): Promise<Delta>;
   transitionDelta(
