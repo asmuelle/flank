@@ -151,8 +151,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       cron-parser:
-        specifier: ^5.0.4
-        version: 5.5.0
+        specifier: ^5.6.0
+        version: 5.6.0
       inngest:
         specifier: ^4.7.0
         version: 4.7.0(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(typescript@6.0.3)(zod@4.4.3)
@@ -1564,8 +1564,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  cron-parser@5.5.0:
-    resolution: {integrity: sha512-oML4lKUXxizYswqmxuOCpgFS8BNUJpIu6k/2HVHyaL8Ynnf3wdf9tkns0yRdJLSIjkJ+b0DXHMZEHGpMwjnPww==}
+  cron-parser@5.6.0:
+    resolution: {integrity: sha512-6159NDv4eDOjXYDmMTkvUtaVcIrNZI779ydTMOfDdi9fSjhPqmySx0icCHX2+nOyXgNSw6sFCsgLKxYs/2KPuQ==}
     engines: {node: '>=18'}
 
   cross-fetch@4.1.0:
@@ -3992,7 +3992,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  cron-parser@5.5.0:
+  cron-parser@5.6.0:
     dependencies:
       luxon: 3.7.2
 
