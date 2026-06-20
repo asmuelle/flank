@@ -35,12 +35,12 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v4
 
-      - name: Setup Node 22
-        # Pinned to v4: setup-node@v5 auto-detects the packageManager field and invokes pnpm before
-        # corepack enables it. Fully clearing the Node-20 notice needs a pnpm/action-setup migration.
+      - name: Setup Node 24
+        # Node 24 aligns the runtime with the bumped @types/node (Node-26 line) from the major-deps
+        # migration, so the types no longer describe APIs ahead of the runtime.
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Enable corepack
         run: corepack enable
