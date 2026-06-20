@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter @flank/web dev",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "e2e": "pnpm --filter @flank/web e2e",
     "lint": "eslint .",
     "format": "prettier --write .",

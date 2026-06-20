@@ -47,6 +47,10 @@ migrate: _bootstrapped
 test: _bootstrapped
     pnpm test
 
+# Run tests with the coverage gate (enforces vitest.config.ts thresholds; used by CI)
+coverage: _bootstrapped
+    pnpm test:coverage
+
 # Run end-to-end tests (Playwright)
 e2e: _bootstrapped
     pnpm e2e
@@ -67,5 +71,5 @@ typecheck: _bootstrapped
 build: _bootstrapped
     pnpm build
 
-# Full CI suite: lint + typecheck + test + build (mirrors GitHub Actions)
-ci: lint typecheck test build
+# Full CI suite: lint + typecheck + coverage-gated test + build (mirrors GitHub Actions)
+ci: lint typecheck coverage build
