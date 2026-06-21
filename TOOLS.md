@@ -2,21 +2,24 @@
 
 ## just Recipes
 
-| Recipe           | What it does                                             | When to run                                         |
-| ---------------- | -------------------------------------------------------- | --------------------------------------------------- |
-| `just`           | Lists all recipes                                        | Orientation                                         |
-| `just setup`     | `corepack enable` + `pnpm install`                       | First clone; after lockfile changes                 |
-| `just dev`       | `pnpm dev` — Next.js web + Inngest dev server/workers    | Daily development                                   |
-| `just db-up`     | `docker compose up -d postgres` (pgvector/pgvector:pg16) | Before `just migrate`, `just dev`, `just test`      |
-| `just db-down`   | Stops the local Postgres container                       | Cleanup                                             |
-| `just migrate`   | Applies Drizzle migrations to `DATABASE_URL`             | After schema changes; after `db-up` on fresh volume |
-| `just test`      | `pnpm test` — Vitest across packages                     | TDD loop; before commit                             |
-| `just e2e`       | `pnpm e2e` — Playwright suite                            | Before merging UI/flow changes                      |
-| `just lint`      | `pnpm lint` — ESLint workspace-wide                      | Before commit                                       |
-| `just format`    | `pnpm format` — Prettier write                           | When the hook didn't catch a file                   |
-| `just typecheck` | `pnpm typecheck` — `tsc --noEmit`                        | Before commit                                       |
-| `just build`     | `pnpm build` — production build all packages             | Verifying release readiness                         |
-| `just ci`        | lint + typecheck + test + build                          | Mirror of GitHub Actions; run before pushing        |
+| Recipe                     | What it does                                             | When to run                                         |
+| -------------------------- | -------------------------------------------------------- | --------------------------------------------------- |
+| `just`                     | Lists all recipes                                        | Orientation                                         |
+| `just setup`               | `corepack enable` + `pnpm install`                       | First clone; after lockfile changes                 |
+| `just dev`                 | `pnpm dev` — Next.js web + Inngest dev server/workers    | Daily development                                   |
+| `just db-up`               | `docker compose up -d postgres` (pgvector/pgvector:pg16) | Before `just migrate`, `just dev`, `just test`      |
+| `just db-down`             | Stops the local Postgres container                       | Cleanup                                             |
+| `just ferriskey-up`        | FerrisKey IAM stack (API :3333, console :5555, db :5434) | Before signing in locally                           |
+| `just ferriskey-down`      | Stops the FerrisKey IAM stack                            | Cleanup                                             |
+| `just ferriskey-bootstrap` | Realm + client + demo user; prints `FERRISKEY_*` env     | Once after `ferriskey-up`                           |
+| `just migrate`             | Applies Drizzle migrations to `DATABASE_URL`             | After schema changes; after `db-up` on fresh volume |
+| `just test`                | `pnpm test` — Vitest across packages                     | TDD loop; before commit                             |
+| `just e2e`                 | `pnpm e2e` — Playwright suite                            | Before merging UI/flow changes                      |
+| `just lint`                | `pnpm lint` — ESLint workspace-wide                      | Before commit                                       |
+| `just format`              | `pnpm format` — Prettier write                           | When the hook didn't catch a file                   |
+| `just typecheck`           | `pnpm typecheck` — `tsc --noEmit`                        | Before commit                                       |
+| `just build`               | `pnpm build` — production build all packages             | Verifying release readiness                         |
+| `just ci`                  | lint + typecheck + test + build                          | Mirror of GitHub Actions; run before pushing        |
 
 All recipes exit with a helpful message until the pnpm workspace exists (M0 in DESIGN.md).
 
@@ -50,15 +53,39 @@ All recipes exit with a helpful message until the pnpm workspace exists (M0 in D
 | `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`                              | Slack app delivery                                   |
 | `RESEND_API_KEY`                                                       | Email digests                                        |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`                           | Billing (M3)                                         |
-| `NEXTAUTH_SECRET` (or equivalent)                                      | Web session signing                                  |
+| `AUTH_SECRET`                                                          | Auth.js (NextAuth v5) session/JWT key                |
+| `FERRISKEY_ISSUER`, `FERRISKEY_REALM`                                  | FerrisKey OIDC issuer base + realm (discovery)       |
+| `FERRISKEY_CLIENT_ID`, `FERRISKEY_CLIENT_SECRET`                       | Confidential OIDC client for the web app             |
+| `FERRISKEY_ADMIN_USERNAME/PASSWORD/EMAIL`                              | Local FerrisKey console + bootstrap (dev: admin)     |
 
 No values in the repo, ever. `packages/core` exposes a startup validator that fails fast when
 a required var for the running surface is missing. Keep a `.env.example` with names only.
+
+## Authentication (FerrisKey OIDC)
+
+Identity is owned by **FerrisKey** (self-hosted Keycloak-alternative IAM); the web app is an OIDC
+relying party via **Auth.js v5**. Tenancy is NOT in the token — every request re-derives workspace
+
+- role from the local `memberships` table (Invariant 8). First-time logins are JIT-provisioned into
+  `app_user` and linked by the IdP `sub` (`linkOrCreateUserBySubject`); a user with no membership is
+  fail-closed to the "no workspace" screen. Local setup:
+
+```
+just ferriskey-up           # API :3333, console :5555, its own Postgres :5434
+just ferriskey-bootstrap    # realm `flank` + client `flank-web` + demo user; prints FERRISKEY_* env
+# paste FERRISKEY_CLIENT_SECRET into .env, then:
+just db-up && just migrate && just seed && just dev
+```
+
+Console: http://localhost:5555 (default `admin`/`admin`) is the source of truth if the bootstrap
+script drifts from a future FerrisKey API.
 
 ## Local Services
 
 - **Postgres 16 + pgvector** via `docker compose` (`pgvector/pgvector:pg16`), port 5432,
   started with `just db-up`. Used by dev, Vitest integration tests, and Drizzle migrations.
+- **FerrisKey IAM** via `docker compose --profile auth` (`just ferriskey-up`): API `:3333`,
+  console `:5555`, dedicated Postgres `:5434`. The OIDC identity provider for sign-in.
 - **Inngest dev server** runs as part of `just dev` for local function execution/cron simulation.
 - S3 is mocked or pointed at a local MinIO container if snapshot tests need it (add to compose when M1 lands).
 

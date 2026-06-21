@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { signIn } from './actions';
+import { signInWithFerrisKey } from './actions';
 
 export const metadata: Metadata = { title: 'Sign in — Flank' };
 
 const MESSAGES: Readonly<Record<string, string>> = {
-  invalid: 'We could not sign you in with that email. Check it and try again.',
   no_workspace: 'That account has no workspace yet. Ask an owner to add you.',
+  oidc: 'Sign-in failed. Please try again.',
 };
 
 export default async function SignInPage({
@@ -22,8 +22,8 @@ export default async function SignInPage({
         <p className="masthead-kicker mono">Flank · competitor radar</p>
         <h1 className="auth-title">Sign in</h1>
         <p className="auth-sub">
-          Enter the email tied to your workspace. We resolve every request to a live membership — no
-          stale tenancy is ever trusted from the cookie.
+          Continue with FerrisKey to verify your identity. We resolve every request to a live
+          membership — no tenancy is ever trusted from the token.
         </p>
 
         {message !== undefined ? (
@@ -32,27 +32,13 @@ export default async function SignInPage({
           </p>
         ) : null}
 
-        <form action={signIn} className="auth-form">
-          <label className="auth-label" htmlFor="email">
-            Work email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            placeholder="you@company.com"
-            className="auth-input mono"
-          />
+        <form action={signInWithFerrisKey} className="auth-form">
           <button type="submit" className="auth-button">
-            Continue
+            Continue with FerrisKey
           </button>
         </form>
 
-        <p className="auth-foot mono">
-          dev sign-in · password &amp; SSO deferred to a later milestone
-        </p>
+        <p className="auth-foot mono">single sign-on · identity managed by FerrisKey (OIDC)</p>
       </main>
     </div>
   );

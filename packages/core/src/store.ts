@@ -12,6 +12,7 @@ import type {
   DeltaState,
   DossierSection,
   DossierSectionKind,
+  ExternalIdentity,
   Membership,
   Snapshot,
   Source,
@@ -49,6 +50,17 @@ export class CrossTenantError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'CrossTenantError';
+  }
+}
+
+/**
+ * An unverified OIDC email collided with an existing local account during identity linking. Thrown
+ * (never linked) to prevent account takeover: only a verified email may adopt a pre-provisioned user.
+ */
+export class IdentityConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'IdentityConflictError';
   }
 }
 
@@ -280,6 +292,16 @@ export interface FlankStore {
   // --- Identity & membership (M2 auth) ---
   seedUser(user: AppUser): Promise<AppUser>;
   seedMembership(membership: Membership): Promise<Membership>;
+  /**
+   * Resolve a verified OIDC identity (FerrisKey) to the one local {@link AppUser}, creating or
+   * linking exactly one row — the JIT-provisioning seam called from the auth callback. Match order:
+   * (1) by immutable `externalSubject`; (2) by normalized email — but ONLY when `emailVerified`,
+   * backfilling the subject so a pre-OIDC/seed row adopts its IdP identity on first login (an
+   * unverified email colliding with an existing account is rejected, never linked — anti-hijack);
+   * (3) else create a fresh user. Never grants a workspace — a brand-new user has zero memberships
+   * and fails closed at `resolveWorkspace`.
+   */
+  linkOrCreateUserBySubject(identity: ExternalIdentity, createdAt?: Date): Promise<AppUser>;
   /** Look up a user by (normalized) email; null if none. Identity is global, not workspace-scoped. */
   findUserByEmail(email: string): Promise<AppUser | null>;
   getUserById(userId: string): Promise<AppUser | null>;

@@ -1,6 +1,7 @@
 import {
   AppendOnlyViolationError,
   CrossTenantError,
+  IdentityConflictError,
   IllegalTransitionError,
   UnknownEntityError,
   type Alert,
@@ -571,6 +572,7 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         id,
         email,
         name: null,
+        externalSubject: null,
         createdAt: AT,
       });
       const grantOn = (
@@ -586,6 +588,56 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         expect(await store.findUserByEmail('nobody@example.com')).toBeNull();
         expect((await store.getUserById('u-1'))?.email).toBe('ada@example.com');
         expect(await store.getUserById('missing')).toBeNull();
+      });
+
+      describe('linkOrCreateUserBySubject (OIDC JIT provisioning)', () => {
+        const identity = (
+          over: Partial<Parameters<typeof store.linkOrCreateUserBySubject>[0]> = {},
+        ) => ({
+          subject: 'fk-sub-123',
+          email: 'ada@example.com',
+          emailVerified: true,
+          name: 'Ada Lovelace',
+          ...over,
+        });
+
+        it('backfills the subject onto a pre-existing user matched by email', async () => {
+          await store.seedUser(userOn('u-1', 'Ada@Example.com')); // seed row, externalSubject null
+          const linked = await store.linkOrCreateUserBySubject(identity());
+          expect(linked.id).toBe('u-1'); // same row, not a new user
+          expect(linked.externalSubject).toBe('fk-sub-123');
+          expect(await store.findUserByEmail('ada@example.com')).toMatchObject({ id: 'u-1' });
+        });
+
+        it('returns the same user on a repeat login, matching by stable subject', async () => {
+          await store.seedUser(userOn('u-1', 'ada@example.com'));
+          await store.linkOrCreateUserBySubject(identity());
+          // IdP email changed but the subject is stable → still resolves to u-1, no new row.
+          const again = await store.linkOrCreateUserBySubject(
+            identity({ email: 'ada@new.example' }),
+          );
+          expect(again.id).toBe('u-1');
+          expect(again.email).toBe('ada@example.com'); // email is not rewritten by a relogin
+        });
+
+        it('creates a fresh user the first time an identity is seen', async () => {
+          const created = await store.linkOrCreateUserBySubject(identity({ subject: 'fk-new' }));
+          expect(created.externalSubject).toBe('fk-new');
+          expect(created.email).toBe('ada@example.com');
+          // Fail-closed: a brand-new user has zero memberships until an owner grants one.
+          expect(await store.listMembershipsForUser(created.id)).toHaveLength(0);
+        });
+
+        it('refuses to link an UNVERIFIED email onto a pre-existing account (anti-hijack)', async () => {
+          await store.seedUser(userOn('u-1', 'ada@example.com')); // pre-provisioned owner, no subject
+          await expect(
+            store.linkOrCreateUserBySubject(
+              identity({ subject: 'fk-attacker', emailVerified: false }),
+            ),
+          ).rejects.toBeInstanceOf(IdentityConflictError);
+          // The pre-existing account is untouched — no subject was written.
+          expect((await store.findUserByEmail('ada@example.com'))?.externalSubject).toBeNull();
+        });
       });
 
       it('grants memberships joined to the workspace, rejecting a duplicate grant', async () => {

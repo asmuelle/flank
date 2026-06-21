@@ -12,9 +12,9 @@ export default defineConfig({
       // The drizzle-*.ts files (store, alert store, row mappers) are exercised by the DB-backed
       // integration suite, not the unit run, so they would otherwise report 0% and drag the gate
       // down — they are covered, just elsewhere (the shared FlankStore contract runs against Postgres).
-      // session.ts / store.ts are thin server-only Next wiring (cookies/redirect/react cache, DB pool)
-      // that imports `server-only` (throws under plain Node/vitest); their pure logic lives in the
-      // covered resolver.ts / secret.ts / session-crypto.ts seams instead.
+      // session.ts / store.ts are thin server-only Next wiring (cookies/redirect/react cache, DB pool,
+      // Auth.js session) that imports `server-only` (throws under plain Node/vitest); their pure logic
+      // lives in the covered resolver.ts seam instead. (auth.ts lives outside apps/web/lib, uncovered.)
       exclude: [
         '**/*.test.ts',
         '**/*.integration.test.ts',

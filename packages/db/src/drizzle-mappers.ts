@@ -145,7 +145,13 @@ export const toBattlecardSection = (
   });
 
 export const toAppUser = (row: typeof appUsers.$inferSelect): AppUser =>
-  Object.freeze({ id: row.id, email: row.email, name: row.name, createdAt: row.createdAt });
+  Object.freeze({
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    externalSubject: row.externalSubject,
+    createdAt: row.createdAt,
+  });
 
 export const toMembership = (row: typeof memberships.$inferSelect): Membership =>
   Object.freeze({

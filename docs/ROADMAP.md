@@ -103,10 +103,10 @@ Split into two PRs (keystone stays small and invariant-critical):
 
 ### M1-hardening — Auth & tenancy origin
 
-| #   | Task                                                                                                                             | Effort | Depends on       |
-| --- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------- |
-| 1   | `users` + `memberships` tables + a Next 15 App Router auth/session layer resolving each request to an authorized `workspaceId`   | L      | store (#4 above) |
-| 2   | Zod-parsed runtime env module validated at process start (`ANTHROPIC_API_KEY`, signing/API secrets) for app + worker entrypoints | S      | — (parallel)     |
+| #   | Task                                                                                                                                                                                                                                                                                                                    | Effort | Depends on       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------- |
+| 1   | `users` + `memberships` tables + a Next App Router auth/session layer resolving each request to an authorized `workspaceId`. **Done — identity delegated to FerrisKey (OIDC) via Auth.js v5; tenancy still re-derived from live `memberships` locally (Invariant 8). `app_user.external_subject` links the IdP `sub`.** | L      | store (#4 above) |
+| 2   | Zod-parsed runtime env module validated at process start (`ANTHROPIC_API_KEY`, signing/API secrets) for app + worker entrypoints                                                                                                                                                                                        | S      | — (parallel)     |
 
 ### M1-hardening — Real fetch + schedule runtime
 

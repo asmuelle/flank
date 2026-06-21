@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
   AppendOnlyViolationError,
   assertAlertTransition,
   assertDeltaTransition,
   CrossTenantError,
+  IdentityConflictError,
   UnknownEntityError,
   type Alert,
   type AlertChannelConfig,
@@ -19,6 +21,7 @@ import {
   type DossierSection,
   type DossierSectionKind,
   type EnabledChannel,
+  type ExternalIdentity,
   type FlankStore,
   type Membership,
   type MembershipWithWorkspace,
@@ -480,6 +483,45 @@ export class MemoryFlankStore implements FlankStore {
       }
     }
     return this.insertUnique(this.state.memberships, membership, 'membership');
+  }
+
+  async linkOrCreateUserBySubject(
+    identity: ExternalIdentity,
+    createdAt: Date = new Date(),
+  ): Promise<AppUser> {
+    const email = identity.email.toLowerCase();
+    // (1) Stable subject match — the authoritative link once established.
+    for (const user of this.state.users.values()) {
+      if (user.externalSubject !== null && user.externalSubject === identity.subject) return user;
+    }
+    // (2) Email match — a pre-OIDC/seed row adopts its IdP subject on first login (backfill), but
+    // ONLY for a verified email. An unverified email colliding with an existing account is rejected,
+    // never linked: otherwise anyone who registers that address at the IdP hijacks the workspace.
+    for (const user of this.state.users.values()) {
+      if (user.email.toLowerCase() === email) {
+        if (!identity.emailVerified) {
+          throw new IdentityConflictError(
+            `unverified email ${email} collides with an existing account — refusing to link`,
+          );
+        }
+        const linked = freezeDeep({
+          ...user,
+          externalSubject: identity.subject,
+          name: user.name ?? identity.name,
+        });
+        this.state.users.set(user.id, linked);
+        return linked;
+      }
+    }
+    // (3) First time we have ever seen this identity — JIT-create. Confers NO membership.
+    const created: AppUser = {
+      id: `user_${randomUUID()}`,
+      email,
+      name: identity.name,
+      externalSubject: identity.subject,
+      createdAt,
+    };
+    return this.insertUnique(this.state.users, created, 'app_user');
   }
 
   async findUserByEmail(email: string): Promise<AppUser | null> {

@@ -269,6 +269,9 @@ export const appUsers = pgTable('app_user', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name'),
+  // Stable `sub` of the external IdP (FerrisKey OIDC). Nullable: pre-OIDC/seed rows link on first
+  // login. Unique so one IdP identity maps to exactly one local user (Invariant 8 starts here).
+  externalSubject: text('external_subject').unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

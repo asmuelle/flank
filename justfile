@@ -1,6 +1,11 @@
 # Flank — living competitor radar. Run `just` to list recipes.
 # All recipes guard against the not-yet-bootstrapped state (no package.json, see DESIGN.md M0).
 
+# Load the local .env (gitignored) into every recipe's environment. Nothing else auto-loads it:
+# next dev runs in apps/web/ and the tsx scripts don't import dotenv, so without this DATABASE_URL
+# (and the other vars in .env.example) never reach the running surface. Falls back silently if absent.
+set dotenv-load := true
+
 # List available recipes
 default:
     @just --list
@@ -42,6 +47,19 @@ db-down:
         exit 1; \
     fi
     docker compose down
+
+# Start the FerrisKey IAM stack (API :3333, console :5555, its own Postgres :5434) — the OIDC IdP
+ferriskey-up:
+    docker compose --profile auth up -d ferriskey ferriskey-console
+
+# Stop the FerrisKey IAM stack (leaves the app Postgres running)
+ferriskey-down:
+    docker compose --profile auth down
+
+# Provision FerrisKey for Flank: realm + confidential client + redirect URIs + demo user.
+# Prints the FERRISKEY_* env values to paste into .env. Re-runnable.
+ferriskey-bootstrap:
+    pnpm ferriskey:bootstrap
 
 # Apply Drizzle migrations to DATABASE_URL
 migrate: _bootstrapped
