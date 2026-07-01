@@ -21,6 +21,7 @@
     "build": "pnpm --filter @flank/web build",
     "migrate": "pnpm --filter @flank/db migrate",
     "seed": "tsx packages/db/scripts/seed.ts",
+    "ferriskey:bootstrap": "tsx scripts/ferriskey-bootstrap.ts",
     "eval:triage": "tsx scripts/eval-triage.ts"
   },
   "dependencies": {

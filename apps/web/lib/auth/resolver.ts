@@ -1,10 +1,10 @@
 import type { FlankStore, MembershipRole, MembershipWithWorkspace } from '@flank/core';
-import { verifySession } from './session-crypto';
 
 /**
- * The fully-resolved request principal: a verified user, the one workspace this request acts in, and
- * the role the user holds there. Tenancy is re-derived from LIVE memberships every request — never
- * trusted from the cookie — so a revoked membership takes effect immediately (fail-closed).
+ * The fully-resolved request principal: an authenticated user, the one workspace this request acts
+ * in, and the role the user holds there. Identity comes from the Auth.js / FerrisKey session, but
+ * tenancy is re-derived from LIVE memberships every request — never trusted from the token — so a
+ * revoked membership takes effect immediately (fail-closed, Product Invariant 8).
  */
 export type WorkspaceResolution =
   | {
@@ -17,30 +17,26 @@ export type WorkspaceResolution =
   | { readonly ok: false; readonly reason: 'no_session' | 'no_workspace' };
 
 export interface ResolveWorkspaceInput {
-  /** Raw signed cookie value, or null when the cookie is absent. */
-  readonly token: string | null;
+  /** Local AppUser id from the authenticated Auth.js session, or null when unauthenticated. */
+  readonly userId: string | null;
   /** Preferred workspace id from a non-authoritative hint cookie, or null. */
   readonly workspaceHint: string | null;
-  readonly secret: string;
   readonly store: FlankStore;
-  readonly nowMs: number;
 }
 
 /**
- * Resolve a request to an authorized workspace. Pure over an injected store, so it is unit-testable
- * without Next wiring. A bad/absent/expired cookie is `no_session`; a valid user with zero live
- * memberships is `no_workspace`. The hint only ever SELECTS among memberships the user actually has —
- * it can never widen access — and an unmatched hint falls back to the first membership.
+ * Resolve an authenticated user id to an authorized workspace. Pure over an injected store, so it is
+ * unit-testable without Next/Auth.js wiring. A null user id is `no_session`; an authenticated user
+ * with zero live memberships is `no_workspace`. The hint only ever SELECTS among memberships the
+ * user actually has — it can never widen access — and an unmatched hint falls back to the first
+ * membership (memberships arrive ordered by createdAt, id).
  */
 export const resolveWorkspace = async (
   input: ResolveWorkspaceInput,
 ): Promise<WorkspaceResolution> => {
-  if (input.token === null) return { ok: false, reason: 'no_session' };
+  if (input.userId === null) return { ok: false, reason: 'no_session' };
 
-  const verified = verifySession(input.token, input.secret, input.nowMs);
-  if (!verified.ok) return { ok: false, reason: 'no_session' };
-
-  const memberships = await input.store.listMembershipsForUser(verified.principal.uid);
+  const memberships = await input.store.listMembershipsForUser(input.userId);
   if (memberships.length === 0) return { ok: false, reason: 'no_workspace' };
 
   const hinted =
@@ -51,7 +47,7 @@ export const resolveWorkspace = async (
 
   return {
     ok: true,
-    userId: verified.principal.uid,
+    userId: input.userId,
     workspaceId: active.workspace.id,
     role: active.membership.role,
     memberships,

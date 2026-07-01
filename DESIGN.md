@@ -81,9 +81,22 @@ All history tables are **append-only** (Invariant 5). Workspace-scoped throughou
 | **battlecard_section** | id, competitor_id, kind (why_we_win/landmines/pricing_counter/objections), version, content_md, claim_ids[], supersedes_id — append-only versions                                                                                    |
 | **alert**              | id, workspace_id, delta_id, channel (slack/email/crm), payload, status (queued/delivered/failed), delivered_at                                                                                                                       |
 | **coverage_run**       | id, workspace_id, period, sources_checked, fetch_failures, deltas_found, material_deltas, llm_cost_cents — feeds digest receipts and COGS metering                                                                                   |
+| **app_user**           | id, email, name, external_subject (FerrisKey OIDC `sub`, nullable — linked on first login), created_at — global identity, not workspace-scoped                                                                                       |
+| **membership**         | id, user_id, workspace_id, role (owner/member), created_at — the ONLY thing that confers tenancy (Invariant 8); mutable                                                                                                              |
 
 pgvector lives on `snapshot.normalized_text` embeddings (changed-span similarity, "have we
 seen this repositioning before") — an enhancement, not on the M1 critical path.
+
+### Authentication & tenancy origin
+
+Identity is delegated to **FerrisKey** (self-hosted, Keycloak-alternative IAM) over OIDC; the web
+app is a relying party via **Auth.js v5** (`apps/web/auth.ts`). FerrisKey answers _who_ the user is;
+it never carries _tenancy_. On each sign-in the verified identity is mapped to exactly one local
+`app_user` (`linkOrCreateUserBySubject`, keyed by the immutable `sub`, email-backfilled for seed
+rows), and that local id is pinned on the session. Every authed request then re-derives its
+`workspaceId` + role from **live** `membership` rows (`resolveActiveWorkspace` → pure
+`resolveWorkspace`), so a revoked grant takes effect immediately and a user with zero memberships is
+fail-closed to the "no workspace" screen — Invariant 8 holds without trusting anything in the token.
 
 ## Key Flows
 

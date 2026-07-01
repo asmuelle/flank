@@ -179,7 +179,27 @@ export interface AppUser {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
+  /**
+   * Stable subject (`sub`) of the external identity provider (FerrisKey OIDC), or null for
+   * pre-OIDC/seed rows not yet linked. Linking by this immutable id — not email — keeps a user's
+   * local identity stable across an IdP email change.
+   */
+  readonly externalSubject: string | null;
   readonly createdAt: Date;
+}
+
+/**
+ * An identity arriving from the OIDC provider (FerrisKey), validated at the auth callback boundary.
+ * Email is normalized; subject is the IdP's immutable `sub` claim. `emailVerified` reflects the
+ * `email_verified` claim — it gates the email-backfill linking path (see linkOrCreateUserBySubject):
+ * an unverified email must never adopt a pre-existing local account, or anyone who can register that
+ * address at the IdP could hijack the workspace it belongs to.
+ */
+export interface ExternalIdentity {
+  readonly subject: string;
+  readonly email: string;
+  readonly emailVerified: boolean;
+  readonly name: string | null;
 }
 
 /** Grants a user access to a workspace with a role — the only thing that confers tenancy. */

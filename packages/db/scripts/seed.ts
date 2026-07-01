@@ -76,6 +76,8 @@ const main = async (): Promise<void> => {
     id: 'u-demo',
     email: SEED_EMAIL,
     name: 'Dana Founder',
+    // Null until first FerrisKey login: linkOrCreateUserBySubject backfills the IdP `sub` by email.
+    externalSubject: null,
     createdAt: at('2026-05-01T00:00:00Z'),
   });
   await store.seedMembership({

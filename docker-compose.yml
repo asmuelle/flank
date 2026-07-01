@@ -18,5 +18,76 @@ services:
       timeout: 5s
       retries: 10
 
+  # --- FerrisKey IAM (OIDC identity provider) — started via `just ferriskey-up` (profile: auth) ---
+  # Kept off the default profile so `just db-up` (app Postgres only) stays lean. Its own Postgres
+  # uses host port 5434 to avoid the app DB (5432) and the integration-test DB (5433).
+  ferriskey-db:
+    image: postgres:18.2
+    container_name: flank-ferriskey-db
+    profiles: ['auth']
+    environment:
+      POSTGRES_USER: ferriskey
+      POSTGRES_PASSWORD: ferriskey
+      POSTGRES_DB: ferriskey
+      PGUSER: ferriskey
+    ports:
+      - '5434:5432'
+    volumes:
+      - ferriskey-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d ferriskey']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # One-shot: apply FerrisKey's own SQLx migrations, then exit. The API waits on its success.
+  ferriskey-migrations:
+    image: ghcr.io/ferriskey/ferriskey-api
+    container_name: flank-ferriskey-migrations
+    profiles: ['auth']
+    entrypoint: ['sqlx']
+    command: ['migrate', 'run', '--source', '/usr/local/src/ferriskey/migrations']
+    environment:
+      DATABASE_URL: postgresql://ferriskey:ferriskey@ferriskey-db/ferriskey
+    restart: 'no'
+    depends_on:
+      ferriskey-db:
+        condition: service_healthy
+
+  ferriskey:
+    image: ghcr.io/ferriskey/ferriskey-api
+    container_name: flank-ferriskey
+    profiles: ['auth']
+    environment:
+      DATABASE_HOST: ferriskey-db
+      DATABASE_NAME: ferriskey
+      DATABASE_USER: ferriskey
+      DATABASE_PASSWORD: ferriskey
+      # Console origin + the Flank web app origin (OIDC browser redirects originate here).
+      ALLOWED_ORIGINS: http://localhost:5555,http://localhost:3000
+      WEBAPP_URL: http://localhost:5555
+      ADMIN_USERNAME: ${FERRISKEY_ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${FERRISKEY_ADMIN_PASSWORD:-admin}
+      ADMIN_EMAIL: ${FERRISKEY_ADMIN_EMAIL:-admin@flank.local}
+    ports:
+      - '3333:3333'
+    depends_on:
+      ferriskey-migrations:
+        condition: service_completed_successfully
+
+  # Admin console (http://localhost:5555, default admin/admin) — manage realms/clients/users.
+  ferriskey-console:
+    image: ghcr.io/ferriskey/ferriskey-webapp
+    container_name: flank-ferriskey-console
+    profiles: ['auth']
+    environment:
+      API_URL: http://localhost:3333
+    ports:
+      - '5555:80'
+    depends_on:
+      - ferriskey
+
 volumes:
   flank-pgdata:
+  ferriskey-pgdata:

@@ -2,6 +2,7 @@ import {
   AppendOnlyViolationError,
   assertDeltaTransition,
   CrossTenantError,
+  IdentityConflictError,
   UnknownEntityError,
   type Alert,
   type AlertChannelConfig,
@@ -18,6 +19,7 @@ import {
   type DossierSection,
   type DossierSectionKind,
   type EnabledChannel,
+  type ExternalIdentity,
   type FlankStore,
   type Membership,
   type MembershipWithWorkspace,
@@ -28,6 +30,7 @@ import {
   type SynthesisCompetitor,
   type Workspace,
 } from '@flank/core';
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, like, ne, sql } from 'drizzle-orm';
 import type { FlankDatabase } from './client';
 import {
@@ -620,6 +623,7 @@ export class DrizzleFlankStore implements FlankStore {
             id: user.id,
             email: user.email.toLowerCase(),
             name: user.name,
+            externalSubject: user.externalSubject,
             createdAt: user.createdAt,
           })
           .returning(),
@@ -644,6 +648,51 @@ export class DrizzleFlankStore implements FlankStore {
       toMembership,
       'membership',
     );
+  }
+
+  async linkOrCreateUserBySubject(
+    identity: ExternalIdentity,
+    createdAt: Date = new Date(),
+  ): Promise<AppUser> {
+    const email = identity.email.toLowerCase();
+    // (1) Stable subject match — the authoritative link once established.
+    const bySubject = await this.db
+      .select()
+      .from(appUsers)
+      .where(eq(appUsers.externalSubject, identity.subject))
+      .limit(1);
+    if (bySubject[0]) return toAppUser(bySubject[0]);
+
+    // (2) Email match — a pre-OIDC/seed row adopts its IdP subject on first login (backfill), but
+    // ONLY for a verified email. An unverified email colliding with an existing account is rejected,
+    // never linked: otherwise anyone who registers that address at the IdP hijacks the workspace.
+    const byEmail = await this.db.select().from(appUsers).where(eq(appUsers.email, email)).limit(1);
+    if (byEmail[0]) {
+      if (!identity.emailVerified) {
+        throw new IdentityConflictError(
+          `unverified email ${email} collides with an existing account — refusing to link`,
+        );
+      }
+      const updated = await this.db
+        .update(appUsers)
+        .set({ externalSubject: identity.subject, name: byEmail[0].name ?? identity.name })
+        .where(eq(appUsers.id, byEmail[0].id))
+        .returning();
+      return toAppUser(updated[0]);
+    }
+
+    // (3) First time we have ever seen this identity — JIT-create. Confers NO membership.
+    const inserted = await this.db
+      .insert(appUsers)
+      .values({
+        id: `user_${randomUUID()}`,
+        email,
+        name: identity.name,
+        externalSubject: identity.subject,
+        createdAt,
+      })
+      .returning();
+    return toAppUser(inserted[0]);
   }
 
   async findUserByEmail(email: string): Promise<AppUser | null> {
