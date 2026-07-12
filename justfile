@@ -65,6 +65,10 @@ ferriskey-bootstrap:
 migrate: _bootstrapped
     pnpm migrate
 
+# Generate a Drizzle migration and its journal/snapshot metadata.
+db-generate *ARGS: _bootstrapped
+    pnpm --filter @flank/db db:generate {{ARGS}}
+
 # Reset + seed one demo tenant (idempotent; needs DATABASE_URL). Prints the sign-in email.
 seed: _bootstrapped
     pnpm seed
