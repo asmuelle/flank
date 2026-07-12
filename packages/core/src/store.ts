@@ -5,6 +5,7 @@ import type {
   AppUser,
   BattlecardSection,
   BattlecardSectionKind,
+  BundleDelivery,
   Claim,
   Competitor,
   CoverageRun,
@@ -348,6 +349,16 @@ export interface FlankStore {
   ): Promise<Alert>;
   /** A workspace's delivery log, newest first (request-safe, for the /authed/alerts view). */
   listAlertsForWorkspace(workspaceId: string): Promise<readonly Alert[]>;
+
+  // --- OKF bundle delivery (M2) ---
+
+  /** Append-only record of one git-push attempt (Invariant 5). Workspace must exist. */
+  insertBundleDelivery(delivery: BundleDelivery): Promise<BundleDelivery>;
+  /**
+   * The most recent successfully-published delivery for a workspace, or null if none. Its manifest
+   * is the baseline the next delivery run diffs against; failed attempts never become the baseline.
+   */
+  latestPublishedBundleDelivery(workspaceId: string): Promise<BundleDelivery | null>;
 
   /**
    * Run `fn` as a single atomic unit of work. The handle passed to `fn` is a {@link FlankStore}

@@ -11,6 +11,7 @@ import {
   deltaStateEnum,
   deltas,
   dossierSections,
+  okfDeliveries,
   snapshots,
   sourceTypeEnum,
   sources,
@@ -32,6 +33,7 @@ describe('drizzle schema (no live database required)', () => {
       battlecardSections,
       alerts,
       coverageRuns,
+      okfDeliveries,
     ];
 
     // Act
@@ -49,6 +51,7 @@ describe('drizzle schema (no live database required)', () => {
       'battlecard_section',
       'alert',
       'coverage_run',
+      'okf_delivery',
     ]);
   });
 
@@ -70,6 +73,7 @@ describe('drizzle schema (no live database required)', () => {
       'claim',
       'dossier_section',
       'battlecard_section',
+      'okf_delivery',
     ]);
   });
 

@@ -1,0 +1,23 @@
+{
+  "name": "@flank/okf-export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OKF bundle projection (M1): maps a workspace's published dossier/battlecard sections and verified claims into a portable OKF bundle. Pure over the FlankStore read interface; no direct I/O.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flank/core": "workspace:*",
+    "@okf/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

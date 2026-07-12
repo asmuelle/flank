@@ -16,6 +16,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
     "@flank/core": "workspace:*",
+    "@flank/okf-export": "workspace:*",
+    "@okf/core": "workspace:*",
     "cron-parser": "^5.0.4",
     "inngest": "^4.7.0",
     "zod": "^4.4.3"

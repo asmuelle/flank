@@ -8,6 +8,7 @@ import {
   type AlertChannelConfig,
   type AppUser,
   type BattlecardSection,
+  type BundleDelivery,
   type Claim,
   type CoverageRun,
   type Delta,
@@ -797,6 +798,68 @@ export const runFlankStoreContract = (label: string, makeStore: () => FlankStore
         await expect(
           store.recordAlertOutcome(WS_B.id, 'al-1', 'failed', {}, AT),
         ).rejects.toBeInstanceOf(CrossTenantError);
+      });
+    });
+
+    describe('okf bundle delivery (M2)', () => {
+      const deliveryOn = (
+        workspaceId: string,
+        id: string,
+        over: Partial<BundleDelivery> = {},
+      ): BundleDelivery => ({
+        id,
+        workspaceId,
+        status: 'published',
+        commitSha: `sha-${id}`,
+        branchRef: 'refs/heads/flank-okf',
+        pullRequestUrl: null,
+        manifest: { 'index.md': 'hash-index' },
+        filesAdded: 1,
+        filesModified: 0,
+        filesRemoved: 0,
+        error: null,
+        createdAt: AT,
+        ...over,
+      });
+
+      it('records deliveries append-only and rejects a duplicate id', async () => {
+        await store.insertBundleDelivery(deliveryOn(WS_A.id, 'del-1'));
+        await expect(
+          store.insertBundleDelivery(deliveryOn(WS_A.id, 'del-1')),
+        ).rejects.toBeInstanceOf(AppendOnlyViolationError);
+      });
+
+      it('rejects a delivery for an unknown workspace', async () => {
+        await expect(
+          store.insertBundleDelivery(deliveryOn('ws-nope', 'del-x')),
+        ).rejects.toBeInstanceOf(UnknownEntityError);
+      });
+
+      it('returns the newest PUBLISHED delivery as the baseline, ignoring failed and other tenants', async () => {
+        // Older published, newer failed, plus another tenant's newer published — none should win.
+        await store.insertBundleDelivery(
+          deliveryOn(WS_A.id, 'del-old', { createdAt: new Date('2026-06-01T00:00:00Z') }),
+        );
+        await store.insertBundleDelivery(
+          deliveryOn(WS_A.id, 'del-new', { createdAt: new Date('2026-06-08T00:00:00Z') }),
+        );
+        await store.insertBundleDelivery(
+          deliveryOn(WS_A.id, 'del-failed', {
+            status: 'failed',
+            manifest: {},
+            commitSha: null,
+            branchRef: null,
+            error: 'boom',
+            createdAt: new Date('2026-06-09T00:00:00Z'),
+          }),
+        );
+        await store.insertBundleDelivery(
+          deliveryOn(WS_B.id, 'del-b', { createdAt: new Date('2026-06-10T00:00:00Z') }),
+        );
+
+        const baseline = await store.latestPublishedBundleDelivery(WS_A.id);
+        expect(baseline?.id).toBe('del-new');
+        expect(await store.latestPublishedBundleDelivery('ws-empty')).toBeNull();
       });
     });
 

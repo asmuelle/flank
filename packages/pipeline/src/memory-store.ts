@@ -12,6 +12,7 @@ import {
   type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
+  type BundleDelivery,
   type Claim,
   type Competitor,
   type CoverageRun,
@@ -59,6 +60,7 @@ interface StoreState {
   readonly memberships: Map<string, Membership>;
   readonly channelConfigs: Map<string, AlertChannelConfig>;
   readonly alerts: Map<string, Alert>;
+  readonly bundleDeliveries: Map<string, BundleDelivery>;
 }
 
 /**
@@ -88,6 +90,7 @@ export class MemoryFlankStore implements FlankStore {
     memberships: new Map(),
     channelConfigs: new Map(),
     alerts: new Map(),
+    bundleDeliveries: new Map(),
   };
 
   private insertUnique<T extends { readonly id: string }>(
@@ -669,6 +672,30 @@ export class MemoryFlankStore implements FlankStore {
     );
   }
 
+  // --- OKF bundle delivery (M2) ---
+
+  async insertBundleDelivery(delivery: BundleDelivery): Promise<BundleDelivery> {
+    if (!this.state.workspaces.has(delivery.workspaceId)) {
+      throw new UnknownEntityError(`workspace ${delivery.workspaceId} does not exist`);
+    }
+    return this.insertUnique(this.state.bundleDeliveries, delivery, 'bundle_delivery');
+  }
+
+  async latestPublishedBundleDelivery(workspaceId: string): Promise<BundleDelivery | null> {
+    let best: BundleDelivery | null = null;
+    for (const delivery of this.state.bundleDeliveries.values()) {
+      if (delivery.workspaceId !== workspaceId || delivery.status !== 'published') continue;
+      // Latest = max by (createdAt, id) — the same deterministic ordering the SQL uses.
+      if (
+        best === null ||
+        byCreatedThenId(delivery.createdAt, delivery.id, best.createdAt, best.id) > 0
+      ) {
+        best = delivery;
+      }
+    }
+    return best;
+  }
+
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {
     const checkpoint = this.captureState();
     try {
@@ -702,6 +729,7 @@ export class MemoryFlankStore implements FlankStore {
       memberships: new Map(this.state.memberships),
       channelConfigs: new Map(this.state.channelConfigs),
       alerts: new Map(this.state.alerts),
+      bundleDeliveries: new Map(this.state.bundleDeliveries),
     };
   }
 
@@ -723,6 +751,7 @@ export class MemoryFlankStore implements FlankStore {
     replaceMap(this.state.memberships, checkpoint.memberships);
     replaceMap(this.state.channelConfigs, checkpoint.channelConfigs);
     replaceMap(this.state.alerts, checkpoint.alerts);
+    replaceMap(this.state.bundleDeliveries, checkpoint.bundleDeliveries);
   }
 }
 
