@@ -83,7 +83,12 @@ export const runOkfDelivery = async (
 
       if (plan.kind === 'blocked') {
         await record(
-          failedDelivery(deps.nextId(), target.workspaceId, now, blockedError(plan.blockingFindings)),
+          failedDelivery(
+            deps.nextId(),
+            target.workspaceId,
+            now,
+            blockedError(plan.blockingFindings),
+          ),
         );
         blocked += 1;
         continue;

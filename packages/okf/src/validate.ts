@@ -9,11 +9,7 @@ import { extractInternalLinks, resolveLink } from './links';
  */
 
 export type LintCheck =
-  | 'EMPTY_BUNDLE'
-  | 'DUPLICATE_PATH'
-  | 'MISSING_TYPE'
-  | 'BROKEN_LINK'
-  | 'ORPHAN';
+  'EMPTY_BUNDLE' | 'DUPLICATE_PATH' | 'MISSING_TYPE' | 'BROKEN_LINK' | 'ORPHAN';
 
 export type LintSeverity = 'error' | 'warning';
 

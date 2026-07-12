@@ -9,18 +9,11 @@ import {
   type LintFinding,
 } from '@okf/core';
 import { versionLog } from './log';
-import {
-  BATTLECARD_KIND_TITLES,
-  DOSSIER_KIND_TITLES,
-  headsByKind,
-  sectionDoc,
-} from './sections';
+import { BATTLECARD_KIND_TITLES, DOSSIER_KIND_TITLES, headsByKind, sectionDoc } from './sections';
 import type { CompetitorExport, WorkspaceBundle, WorkspaceExportInput } from './types';
 
 /** Stable, collision-free slug per competitor (name slug; id-suffixed on clash). */
-const competitorSlugs = (
-  competitors: readonly CompetitorExport[],
-): ReadonlyMap<string, string> => {
+const competitorSlugs = (competitors: readonly CompetitorExport[]): ReadonlyMap<string, string> => {
   const byName = new Map<string, number>();
   for (const { competitor } of competitors) {
     const slug = slugify(competitor.name);
@@ -46,7 +39,10 @@ const competitorIndexDoc = (
   const group = (family: 'dossier' | 'battlecard'): string =>
     sectionDocs
       .filter((doc) => doc.path.includes(`/${family}/`))
-      .map((doc) => `- [${doc.frontmatter.title ?? doc.path}](${doc.path.split('/').slice(2).join('/')})`)
+      .map(
+        (doc) =>
+          `- [${doc.frontmatter.title ?? doc.path}](${doc.path.split('/').slice(2).join('/')})`,
+      )
       .join('\n');
 
   const dossier = group('dossier');

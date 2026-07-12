@@ -830,9 +830,7 @@ export class DrizzleFlankStore implements FlankStore {
     const rows = await this.db
       .select()
       .from(okfDeliveries)
-      .where(
-        and(eq(okfDeliveries.workspaceId, workspaceId), eq(okfDeliveries.status, 'published')),
-      )
+      .where(and(eq(okfDeliveries.workspaceId, workspaceId), eq(okfDeliveries.status, 'published')))
       // Deterministic "latest": createdAt desc, id desc — the memory store's byCreatedThenId mirror.
       .orderBy(desc(okfDeliveries.createdAt), desc(okfDeliveries.id))
       .limit(1);

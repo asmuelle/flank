@@ -21,7 +21,7 @@ _bootstrapped:
 
 # Enable corepack and install workspace dependencies
 setup: _bootstrapped
-    corepack enable
+    @if ! command -v pnpm >/dev/null 2>&1; then corepack enable; fi
     pnpm install
 
 # Run the Next.js dev server (serves the Inngest functions at /api/inngest)
@@ -69,9 +69,9 @@ migrate: _bootstrapped
 seed: _bootstrapped
     pnpm seed
 
-# Run unit/integration tests (Vitest)
-test: _bootstrapped
-    pnpm test
+# Run unit tests (Vitest); pass an optional file/filter for focused TDD runs.
+test *ARGS: _bootstrapped
+    pnpm test {{ARGS}}
 
 # Run tests with the coverage gate (enforces vitest.config.ts thresholds; used by CI)
 coverage: _bootstrapped

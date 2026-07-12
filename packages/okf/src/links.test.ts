@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  extractInternalLinks,
-  markdownLink,
-  relativeLink,
-  resolveLink,
-  slugify,
-} from './links';
+import { extractInternalLinks, markdownLink, relativeLink, resolveLink, slugify } from './links';
 
 describe('slugify', () => {
   it('lowercases and collapses non-alphanumeric runs', () => {
@@ -50,6 +44,16 @@ describe('extractInternalLinks', () => {
 
     // Act & Assert
     expect(extractInternalLinks(body)).toEqual(['customers.md', '../metrics/wau.md']);
+  });
+
+  it('strips a long query and fragment without regex backtracking', () => {
+    // Arrange
+    const suffix = `?${'filter=value&'.repeat(10_000)}#definition`;
+
+    // Act & Assert
+    expect(extractInternalLinks(`[metric](../metrics/wau.md${suffix})`)).toEqual([
+      '../metrics/wau.md',
+    ]);
   });
 });
 

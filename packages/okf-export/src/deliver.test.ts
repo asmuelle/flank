@@ -59,9 +59,7 @@ describe('planDelivery', () => {
 
   it('builds a subdir-prefixed publish request with deletions and a summary commit message', () => {
     // Arrange — previous had an extra file (now removed) and a changed one.
-    const previous = manifestOf(
-      filesOf({ 'index.md': 'old', 'competitors/gone/index.md': 'bye' }),
-    );
+    const previous = manifestOf(filesOf({ 'index.md': 'old', 'competitors/gone/index.md': 'bye' }));
     const files = filesOf({ 'index.md': 'new', 'competitors/globex/index.md': 'hi' });
 
     // Act

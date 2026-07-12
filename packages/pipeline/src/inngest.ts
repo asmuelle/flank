@@ -139,11 +139,8 @@ export const createOkfDeliveryFunction = (
     },
     async () => {
       const { store, publisher, targets, baseUrl } = await buildRuntime();
-      return runOkfDelivery(
-        { store, publisher, nextId: () => randomUUID() },
-        targets,
-        new Date(),
-        { baseUrl },
-      );
+      return runOkfDelivery({ store, publisher, nextId: () => randomUUID() }, targets, new Date(), {
+        baseUrl,
+      });
     },
   );

@@ -10,8 +10,8 @@
  *   4. Register the redirect + post-logout URIs for the Next.js app.
  *   5. Create the demo user (matching the seed email) and set its password.
  *
- * It then prints the exact env values to paste into `.env`. The FerrisKey console
- * (http://localhost:5555, admin/admin) remains the source of truth if anything drifts.
+ * It then prints the non-sensitive env values to paste into `.env`. Secret values remain in the
+ * FerrisKey console (http://localhost:5555), which is the source of truth if anything drifts.
  *
  *   just ferriskey-bootstrap
  */
@@ -147,7 +147,6 @@ const main = async (): Promise<void> => {
     client = match;
   }
   const clientUuid = client.id;
-  const clientSecret = client.secret;
   if (typeof clientUuid !== 'string') return fail('client has no id');
   console.log(`✓ client "${CLIENT_ID}" ready (${clientUuid})`);
 
@@ -193,7 +192,7 @@ const main = async (): Promise<void> => {
       token,
       json: { temporary: false, credential_type: 'password', value: DEMO_PASSWORD },
     });
-    console.log(`✓ demo user ${DEMO_EMAIL} ready (password: ${DEMO_PASSWORD})`);
+    console.log(`✓ demo user ${DEMO_EMAIL} ready (password configured)`);
   } else {
     console.log(`• demo user ${DEMO_EMAIL} already existed — left untouched`);
   }
@@ -203,9 +202,7 @@ const main = async (): Promise<void> => {
   console.log(`FERRISKEY_REALM=${REALM}`);
   console.log(`FERRISKEY_CLIENT_ID=${CLIENT_ID}`);
   console.log(
-    typeof clientSecret === 'string'
-      ? `FERRISKEY_CLIENT_SECRET=${clientSecret}`
-      : 'FERRISKEY_CLIENT_SECRET=<copy from the FerrisKey console → realm flank → client flank-web → Credentials>',
+    'FERRISKEY_CLIENT_SECRET=<copy from the FerrisKey console → realm flank → client flank-web → Credentials>',
   );
 };
 

@@ -26,7 +26,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { files, findings } = projectWorkspaceBundle(input);
 
   if (findings.some((finding) => finding.severity === 'error')) {
-    return NextResponse.json({ error: 'bundle failed the publish gate', findings }, { status: 409 });
+    return NextResponse.json(
+      { error: 'bundle failed the publish gate', findings },
+      { status: 409 },
+    );
   }
 
   if (request.nextUrl.searchParams.get('format') === 'json') {

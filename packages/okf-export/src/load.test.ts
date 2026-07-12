@@ -45,24 +45,26 @@ describe('loadWorkspaceExport', () => {
       listBattlecardSections: async () => [battlecard],
       getClaimsByIds: async (_workspaceId, claimIds) => {
         claimRequests.push([...claimIds]);
-        return claimIds.map(
-          (id): Claim => ({
-            id,
-            deltaId: 'd-1',
-            snapshotId: 'snap-1',
-            quoteText: 'q',
-            charStart: 0,
-            charEnd: 1,
-            sourceUrl: 'https://globex.com',
-            capturedAt: AT,
-            verifiedAt: AT,
-          }),
-        );
+        return claimIds.map((id): Claim => ({
+          id,
+          deltaId: 'd-1',
+          snapshotId: 'snap-1',
+          quoteText: 'q',
+          charStart: 0,
+          charEnd: 1,
+          sourceUrl: 'https://globex.com',
+          capturedAt: AT,
+          verifiedAt: AT,
+        }));
       },
     };
 
     // Act
-    const input = await loadWorkspaceExport(store, { id: 'ws-a', name: 'Acme' }, 'https://app.test');
+    const input = await loadWorkspaceExport(
+      store,
+      { id: 'ws-a', name: 'Acme' },
+      'https://app.test',
+    );
 
     // Assert
     expect(input.workspace.id).toBe('ws-a');
@@ -86,7 +88,11 @@ describe('loadWorkspaceExport', () => {
     };
 
     // Act
-    const input = await loadWorkspaceExport(store, { id: 'ws-a', name: 'Acme' }, 'https://app.test');
+    const input = await loadWorkspaceExport(
+      store,
+      { id: 'ws-a', name: 'Acme' },
+      'https://app.test',
+    );
 
     // Assert
     expect(input.competitors[0].claims).toEqual([]);

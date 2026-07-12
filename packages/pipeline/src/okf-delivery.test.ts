@@ -1,11 +1,4 @@
-import type {
-  Claim,
-  Competitor,
-  DossierSection,
-  Snapshot,
-  Source,
-  Workspace,
-} from '@flank/core';
+import type { Claim, Competitor, DossierSection, Snapshot, Source, Workspace } from '@flank/core';
 import type {
   BundlePublishRequest,
   BundlePublishResult,
@@ -102,7 +95,11 @@ const fakePublisher = (
   };
 };
 
-const seedPublishable = async (store: MemoryFlankStore, claimIds: readonly string[], verified: boolean) => {
+const seedPublishable = async (
+  store: MemoryFlankStore,
+  claimIds: readonly string[],
+  verified: boolean,
+) => {
   await store.seedWorkspace(WS);
   await store.seedCompetitor(COMP);
   await store.seedSource(SRC);

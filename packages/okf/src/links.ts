@@ -60,6 +60,14 @@ export const markdownLink = (title: string, fromPath: string, toPath: string): s
 
 const EXTERNAL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
+const stripQueryAndFragment = (href: string): string => {
+  const queryIndex = href.indexOf('?');
+  const fragmentIndex = href.indexOf('#');
+  if (queryIndex === -1) return fragmentIndex === -1 ? href : href.slice(0, fragmentIndex);
+  if (fragmentIndex === -1) return href.slice(0, queryIndex);
+  return href.slice(0, Math.min(queryIndex, fragmentIndex));
+};
+
 /**
  * Extract bundle-internal link targets from a markdown body. External URLs
  * (http:, mailto:, …) are skipped; fragments and queries are stripped.
@@ -67,7 +75,7 @@ const EXTERNAL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 export const extractInternalLinks = (body: string): string[] => {
   const targets: string[] = [];
   for (const match of body.matchAll(/\]\(([^()\s]+)\)/g)) {
-    const href = (match[1] ?? '').replace(/[#?].*$/, '');
+    const href = stripQueryAndFragment(match[1] ?? '');
     if (href === '' || EXTERNAL_SCHEME.test(href)) continue;
     targets.push(href);
   }

@@ -7,7 +7,8 @@ import { createHash } from 'node:crypto';
  */
 export type BundleManifest = ReadonlyMap<string, string>;
 
-const sha256 = (content: string): string => createHash('sha256').update(content, 'utf8').digest('hex');
+const sha256 = (content: string): string =>
+  createHash('sha256').update(content, 'utf8').digest('hex');
 
 /** Manifest of a rendered bundle (path → content). */
 export const manifestOf = (files: ReadonlyMap<string, string>): BundleManifest => {

@@ -1,8 +1,4 @@
-import type {
-  BundlePublishRequest,
-  BundlePublishResult,
-  BundlePublisher,
-} from '@flank/okf-export';
+import type { BundlePublishRequest, BundlePublishResult, BundlePublisher } from '@flank/okf-export';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_API_BASE = 'https://api.github.com';
@@ -123,9 +119,12 @@ export class GitHubBundlePublisher implements BundlePublisher {
 
   /** Current tip of `branch`, creating it from `baseBranch` when it does not yet exist. */
   private async resolveHeadSha(repo: string, branch: string, baseBranch: string): Promise<string> {
-    const existing = await this.gh('GET', `/repos/${repo}/git/ref/heads/${branch}`, undefined, [
-      404,
-    ]);
+    const existing = await this.gh(
+      'GET',
+      `/repos/${repo}/git/ref/heads/${branch}`,
+      undefined,
+      [404],
+    );
     if (existing.status !== 404) {
       return asString(readField(existing.body, 'object', 'sha'), 'git/ref.object.sha');
     }

@@ -38,8 +38,7 @@ const unquoteScalar = (raw: string): string => {
   return trimmed;
 };
 
-const emitArray = (values: readonly string[]): string =>
-  `[${values.map(quoteScalar).join(', ')}]`;
+const emitArray = (values: readonly string[]): string => `[${values.map(quoteScalar).join(', ')}]`;
 
 /** Split an inline YAML array body on top-level commas (quote-aware). */
 const splitInlineArray = (body: string): string[] => {
@@ -83,9 +82,7 @@ export const emitFrontmatter = (frontmatter: ConceptFrontmatter): string => {
         : `${key}: ${quoteScalar(value as string)}`,
     );
   }
-  const extraEntries = Object.entries(frontmatter.extra ?? {}).sort(([a], [b]) =>
-    a < b ? -1 : 1,
-  );
+  const extraEntries = Object.entries(frontmatter.extra ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
   for (const [key, value] of extraEntries) {
     lines.push(`${key}: ${quoteScalar(value)}`);
   }
@@ -111,7 +108,10 @@ export const parseConcept = (content: string): ParsedConcept => {
     throw new Error('unterminated frontmatter block');
   }
   const yamlBlock = content.slice(4, end);
-  const body = content.slice(end + '\n---\n'.length).replace(/^\n/, '').replace(/\n$/, '');
+  const body = content
+    .slice(end + '\n---\n'.length)
+    .replace(/^\n/, '')
+    .replace(/\n$/, '');
 
   let type = '';
   const scalars: Record<string, string> = {};

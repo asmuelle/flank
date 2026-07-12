@@ -18,10 +18,10 @@
     "@flank/core": "workspace:*",
     "@flank/okf-export": "workspace:*",
     "@okf/core": "workspace:*",
-    "cron-parser": "^5.0.4",
-    "inngest": "^4.7.0",
     "cron-parser": "^5.6.1",
+    "fast-xml-parser": "^5.2.5",
     "inngest": "^4.11.0",
+    "parse5": "^8.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

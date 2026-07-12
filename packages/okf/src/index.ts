@@ -2,13 +2,7 @@ export { FRONTMATTER_KEY_ORDER } from './concept';
 export type { ConceptDoc, ConceptFrontmatter } from './concept';
 export { emitFrontmatter, parseConcept } from './frontmatter';
 export type { ParsedConcept } from './frontmatter';
-export {
-  extractInternalLinks,
-  markdownLink,
-  relativeLink,
-  resolveLink,
-  slugify,
-} from './links';
+export { extractInternalLinks, markdownLink, relativeLink, resolveLink, slugify } from './links';
 export { buildBundle, renderConcept } from './bundle';
 export { generateIndex } from './index-gen';
 export type { IndexEntry, IndexOptions } from './index-gen';

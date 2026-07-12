@@ -21,7 +21,12 @@ const request = (over: Partial<BundlePublishRequest> = {}): BundlePublishRequest
   files: new Map([['intel/acme/index.md', 'hello']]),
   deletions: ['intel/acme/competitors/gone/index.md'],
   commitMessage: 'chore(okf): update Acme competitive bundle (+1 ~0 -1)',
-  diff: { added: ['index.md'], modified: [], removed: ['competitors/gone/index.md'], unchanged: [] },
+  diff: {
+    added: ['index.md'],
+    modified: [],
+    removed: ['competitors/gone/index.md'],
+    unchanged: [],
+  },
   ...over,
 });
 
@@ -81,7 +86,10 @@ describe('GitHubBundlePublisher', () => {
     });
     // The tree is built on the branch's current tree, with content blobs and a null-sha deletion.
     const treeCall = calls.find((c) => c.path === '/repos/acme/intel/git/trees');
-    const tree = (treeCall?.body as { base_tree: string; tree: unknown[] }) ?? { base_tree: '', tree: [] };
+    const tree = (treeCall?.body as { base_tree: string; tree: unknown[] }) ?? {
+      base_tree: '',
+      tree: [],
+    };
     expect(tree.base_tree).toBe('basetree');
     expect(tree.tree).toContainEqual({
       path: 'intel/acme/index.md',
@@ -134,9 +142,7 @@ describe('GitHubBundlePublisher', () => {
     });
 
     // Act
-    const result = await publisher.publish(
-      request({ target: { ...TARGET, baseBranch: null } }),
-    );
+    const result = await publisher.publish(request({ target: { ...TARGET, baseBranch: null } }));
 
     // Assert
     expect(result).toMatchObject({ ok: true, pullRequestUrl: null });

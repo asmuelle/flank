@@ -39,6 +39,31 @@ describe('normalizeRss', () => {
     // Arrange & Act & Assert
     expect(() => normalizeRss('<html><body>blocked</body></html>')).toThrow(AdapterError);
   });
+
+  it('decodes XML entities exactly once', () => {
+    // Arrange
+    const xml = `
+      <rss version="2.0"><channel><item>
+        <title>Literal &amp;lt;launch&amp;gt;</title>
+        <description>SSO &amp;amp; API</description>
+        <pubDate>Thu, 09 Jul 2026 10:00:00 GMT</pubDate>
+      </item></channel></rss>`;
+
+    // Act & Assert
+    expect(normalizeRss(xml)).toBe(
+      'Thu, 09 Jul 2026 10:00:00 GMT | Literal &lt;launch&gt; — SSO &amp; API',
+    );
+  });
+
+  it('rejects malformed XML and documents with a DTD', () => {
+    // Arrange
+    const malformed = '<rss><channel><item></channel></rss>';
+    const withDtd = '<!DOCTYPE rss [<!ENTITY x "secret">]><rss><channel /></rss>';
+
+    // Act & Assert
+    expect(() => normalizeRss(malformed)).toThrow(AdapterError);
+    expect(() => normalizeRss(withDtd)).toThrow(/DTD/);
+  });
 });
 
 describe('normalizeGreenhouse', () => {
@@ -105,6 +130,20 @@ describe('normalizePricingHtml', () => {
   it('throws AdapterError for non-HTML payloads', () => {
     // Arrange & Act & Assert
     expect(() => normalizePricingHtml('just plain text, no markup')).toThrow(AdapterError);
+  });
+
+  it('uses parsed text nodes and decodes HTML entities exactly once', () => {
+    // Arrange
+    const html = `
+      <main>
+        <p>Literal &amp;lt;launch&amp;gt;</p>
+        <script data-comparison=">">window.__cfg = "<p>not content</p>";</script>
+        <style>.price::before { content: "<"; }</style>
+        <p>SSO &amp;amp; API</p>
+      </main>`;
+
+    // Act & Assert
+    expect(normalizePricingHtml(html)).toBe('Literal &lt;launch&gt;\nSSO &amp; API');
   });
 });
 

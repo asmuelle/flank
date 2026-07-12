@@ -60,9 +60,8 @@ describe('createNotifier — email', () => {
   const env = { RESEND_API_KEY: 'rk_test', FLANK_ALERT_FROM: 'radar@flank.test' };
 
   it('posts Resend with the api key + idempotency key and returns the provider id', async () => {
-    const fetchImpl = vi.fn(
-      async (_url: string, _init: RequestInit): Promise<Response> =>
-        okResponse(JSON.stringify({ id: 'resend-123' })),
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit): Promise<Response> =>
+      okResponse(JSON.stringify({ id: 'resend-123' })),
     );
     const result = await createNotifier(env, { fetchImpl }).send(emailReq());
     expect(result).toEqual({ ok: true, providerRef: 'resend-123', httpStatus: 200 });

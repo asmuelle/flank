@@ -33,7 +33,9 @@ export const parseOkfTargets = (raw: string | undefined): readonly GitBundleTarg
  * `FLANK_OKF_GITHUB_TOKEN` is set, else the live-ban publisher (which throws if ever called — safe
  * because with no token the operator also configures no targets, so the sweep never publishes).
  */
-export const createOkfPublisher = (env: Readonly<Record<string, string | undefined>>): BundlePublisher => {
+export const createOkfPublisher = (
+  env: Readonly<Record<string, string | undefined>>,
+): BundlePublisher => {
   const token = env.FLANK_OKF_GITHUB_TOKEN;
   return token !== undefined && token !== ''
     ? new GitHubBundlePublisher({ token })
