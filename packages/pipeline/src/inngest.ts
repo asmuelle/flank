@@ -1,8 +1,10 @@
 import type { FlankStore, Notifier, SynthesisClient, TriageClient } from '@flank/core';
+import type { BundlePublisher, GitBundleTarget } from '@flank/okf-export';
 import { Inngest } from 'inngest';
 import { randomUUID } from 'node:crypto';
 import { runDeliverySweep, type DeliveryOptions } from './delivery';
 import { HttpFetcher } from './http-fetcher';
+import { runOkfDelivery } from './okf-delivery';
 import { runScheduledTick, type SchedulerOptions } from './scheduler';
 import { runNightlySynthesis } from './synthesis';
 
@@ -101,6 +103,47 @@ export const createDeliverySweepFunction = (
         { store, notifier, nextId: () => randomUUID() },
         new Date(),
         config.options ?? {},
+      );
+    },
+  );
+
+/** Concrete runtime the OKF delivery sweep needs: the store, a git publisher, and the targets. */
+export interface OkfDeliveryRuntime {
+  readonly store: FlankStore;
+  readonly publisher: BundlePublisher;
+  /** Operator-configured customer repos to deliver to (M2; self-serve config comes later). */
+  readonly targets: readonly GitBundleTarget[];
+  /** App origin for `resource:` deep links in the projected bundle. */
+  readonly baseUrl: string;
+}
+
+export interface OkfDeliveryConfig {
+  /** Cron cadence (default 05:00 daily — after nightly synthesis at 04:00 has republished sections). */
+  readonly cron?: string;
+}
+
+/**
+ * The OKF git-delivery cron (M2): after synthesis has refreshed sections, project each configured
+ * workspace's bundle and push the diff to its designated repo. Runs after nightly-synthesis so it
+ * ships the freshly published versions. Singleton so two ticks never double-push the same branch.
+ */
+export const createOkfDeliveryFunction = (
+  buildRuntime: () => Promise<OkfDeliveryRuntime>,
+  config: OkfDeliveryConfig = {},
+) =>
+  inngest.createFunction(
+    {
+      id: 'okf-delivery',
+      concurrency: { limit: 1 },
+      triggers: [{ cron: config.cron ?? '0 5 * * *' }],
+    },
+    async () => {
+      const { store, publisher, targets, baseUrl } = await buildRuntime();
+      return runOkfDelivery(
+        { store, publisher, nextId: () => randomUUID() },
+        targets,
+        new Date(),
+        { baseUrl },
       );
     },
   );

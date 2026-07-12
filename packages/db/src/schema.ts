@@ -1,5 +1,6 @@
 import {
   BATTLECARD_SECTION_KINDS,
+  BUNDLE_DELIVERY_STATUSES,
   DELTA_STATES,
   DOSSIER_SECTION_KINDS,
   LEGAL_STATUSES,
@@ -35,6 +36,7 @@ export const alertStatusEnum = pgEnum('alert_status', ['queued', 'delivered', 'f
 export const sectionKindEnum = pgEnum('dossier_section_kind', DOSSIER_SECTION_KINDS);
 export const battlecardKindEnum = pgEnum('battlecard_section_kind', BATTLECARD_SECTION_KINDS);
 export const membershipRoleEnum = pgEnum('membership_role', MEMBERSHIP_ROLES);
+export const bundleDeliveryStatusEnum = pgEnum('bundle_delivery_status', BUNDLE_DELIVERY_STATUSES);
 
 export const workspaces = pgTable('workspace', {
   id: text('id').primaryKey(),
@@ -295,6 +297,33 @@ export const memberships = pgTable(
   ],
 );
 
+/**
+ * Append-only record of each OKF bundle git-push (M2). One row per published or failed attempt;
+ * `manifest` (path → sha256) is the baseline the next run diffs against. Append-only (Invariant 5);
+ * workspace-scoped (Invariant 8).
+ */
+export const okfDeliveries = pgTable(
+  'okf_delivery',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    status: bundleDeliveryStatusEnum('status').notNull(),
+    commitSha: text('commit_sha'),
+    branchRef: text('branch_ref'),
+    pullRequestUrl: text('pull_request_url'),
+    manifest: jsonb('manifest').$type<Readonly<Record<string, string>>>().notNull().default({}),
+    filesAdded: integer('files_added').notNull().default(0),
+    filesModified: integer('files_modified').notNull().default(0),
+    filesRemoved: integer('files_removed').notNull().default(0),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  // The next-run baseline lookup: newest published delivery per workspace.
+  (table) => [index('okf_delivery_workspace_status_idx').on(table.workspaceId, table.status)],
+);
+
 /** Tables whose rows must never be UPDATEd or DELETEd (Invariant 5). */
 export const APPEND_ONLY_TABLES = Object.freeze([
   snapshots,
@@ -302,4 +331,5 @@ export const APPEND_ONLY_TABLES = Object.freeze([
   claims,
   dossierSections,
   battlecardSections,
+  okfDeliveries,
 ] as const);

@@ -10,6 +10,7 @@ import {
   type AppUser,
   type BattlecardSection,
   type BattlecardSectionKind,
+  type BundleDelivery,
   type Claim,
   type Competitor,
   type CoverageRun,
@@ -42,6 +43,7 @@ import {
   deltas,
   dossierSections,
   memberships,
+  okfDeliveries,
   snapshots,
   sources,
   workspaces,
@@ -51,6 +53,7 @@ import {
   isUniqueViolation,
   toAppUser,
   toBattlecardSection,
+  toBundleDelivery,
   toClaim,
   toCompetitor,
   toCoverageRun,
@@ -786,6 +789,54 @@ export class DrizzleFlankStore implements FlankStore {
   }
   listAlertsForWorkspace(workspaceId: string): Promise<readonly Alert[]> {
     return alertStore.listAlertsForWorkspace(this.db, workspaceId);
+  }
+
+  // --- OKF bundle delivery (M2) ---
+
+  async insertBundleDelivery(delivery: BundleDelivery): Promise<BundleDelivery> {
+    const parent = await this.db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.id, delivery.workspaceId))
+      .limit(1);
+    if (parent[0] === undefined) {
+      throw new UnknownEntityError(`workspace ${delivery.workspaceId} does not exist`);
+    }
+    return this.insertOne(
+      () =>
+        this.db
+          .insert(okfDeliveries)
+          .values({
+            id: delivery.id,
+            workspaceId: delivery.workspaceId,
+            status: delivery.status,
+            commitSha: delivery.commitSha,
+            branchRef: delivery.branchRef,
+            pullRequestUrl: delivery.pullRequestUrl,
+            manifest: delivery.manifest,
+            filesAdded: delivery.filesAdded,
+            filesModified: delivery.filesModified,
+            filesRemoved: delivery.filesRemoved,
+            error: delivery.error,
+            createdAt: delivery.createdAt,
+          })
+          .returning(),
+      toBundleDelivery,
+      'okf_delivery',
+    );
+  }
+
+  async latestPublishedBundleDelivery(workspaceId: string): Promise<BundleDelivery | null> {
+    const rows = await this.db
+      .select()
+      .from(okfDeliveries)
+      .where(
+        and(eq(okfDeliveries.workspaceId, workspaceId), eq(okfDeliveries.status, 'published')),
+      )
+      // Deterministic "latest": createdAt desc, id desc — the memory store's byCreatedThenId mirror.
+      .orderBy(desc(okfDeliveries.createdAt), desc(okfDeliveries.id))
+      .limit(1);
+    return rows[0] === undefined ? null : toBundleDelivery(rows[0]);
   }
 
   async withTransaction<T>(fn: (tx: FlankStore) => Promise<T>): Promise<T> {

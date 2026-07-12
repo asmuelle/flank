@@ -1,10 +1,18 @@
-import { createNotifier, createSynthesisClient, createTriageClient } from '@flank/pipeline';
+import {
+  createNotifier,
+  createOkfPublisher,
+  createSynthesisClient,
+  createTriageClient,
+  parseOkfTargets,
+} from '@flank/pipeline';
 import {
   createDeliverySweepFunction,
   createNightlySynthesisFunction,
+  createOkfDeliveryFunction,
   createScheduledTickFunction,
   inngest,
   type DeliveryRuntime,
+  type OkfDeliveryRuntime,
   type SchedulerRuntime,
   type SynthesisRuntime,
 } from '@flank/pipeline/inngest';
@@ -31,11 +39,21 @@ const buildDeliveryRuntime = async (): Promise<DeliveryRuntime> => ({
   notifier: createNotifier(process.env),
 });
 
+const buildOkfDeliveryRuntime = async (): Promise<OkfDeliveryRuntime> => ({
+  store: store(),
+  // Real GitHub publisher when FLANK_OKF_GITHUB_TOKEN is set; targets come from FLANK_OKF_TARGETS
+  // (JSON). With neither configured the sweep has no targets and no-ops.
+  publisher: createOkfPublisher(process.env),
+  targets: parseOkfTargets(process.env.FLANK_OKF_TARGETS),
+  baseUrl: process.env.FLANK_APP_ORIGIN ?? 'https://app.flank.example',
+});
+
 const scheduledTick = createScheduledTickFunction(buildSchedulerRuntime);
 const nightlySynthesis = createNightlySynthesisFunction(buildSynthesisRuntime);
 const deliverySweep = createDeliverySweepFunction(buildDeliveryRuntime);
+const okfDelivery = createOkfDeliveryFunction(buildOkfDeliveryRuntime);
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [scheduledTick, nightlySynthesis, deliverySweep],
+  functions: [scheduledTick, nightlySynthesis, deliverySweep, okfDelivery],
 });

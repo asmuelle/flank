@@ -3,6 +3,7 @@ import type {
   AlertChannelConfig,
   AppUser,
   BattlecardSection,
+  BundleDelivery,
   Claim,
   Competitor,
   CoverageRun,
@@ -24,6 +25,7 @@ import type {
   deltas,
   dossierSections,
   memberships,
+  okfDeliveries,
   snapshots,
   sources,
   workspaces,
@@ -191,6 +193,22 @@ export const toAlert = (row: typeof alerts.$inferSelect): Alert =>
     enqueuedAt: row.enqueuedAt,
     lastAttemptAt: row.lastAttemptAt,
     deliveredAt: row.deliveredAt,
+  });
+
+export const toBundleDelivery = (row: typeof okfDeliveries.$inferSelect): BundleDelivery =>
+  Object.freeze({
+    id: row.id,
+    workspaceId: row.workspaceId,
+    status: row.status,
+    commitSha: row.commitSha,
+    branchRef: row.branchRef,
+    pullRequestUrl: row.pullRequestUrl,
+    manifest: row.manifest,
+    filesAdded: row.filesAdded,
+    filesModified: row.filesModified,
+    filesRemoved: row.filesRemoved,
+    error: row.error,
+    createdAt: row.createdAt,
   });
 
 const PG_UNIQUE_VIOLATION = '23505';

@@ -279,6 +279,37 @@ export interface Alert {
   readonly deliveredAt: Date | null;
 }
 
+// --- OKF bundle delivery (M2) ---
+
+/**
+ * The outcome of one attempt to push a workspace's OKF bundle to its designated git repo.
+ * `published` shipped a commit; `failed` is a recorded attempt that errored (publish I/O, or a
+ * gate that refused the bundle). A run that finds no changes ships nothing and records no row —
+ * silence isn't a delivery. Append-only (Invariant 5).
+ */
+export const BUNDLE_DELIVERY_STATUSES = ['published', 'failed'] as const;
+export type BundleDeliveryStatus = (typeof BUNDLE_DELIVERY_STATUSES)[number];
+
+export interface BundleDelivery {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly status: BundleDeliveryStatus;
+  readonly commitSha: string | null;
+  /** The git ref the commit landed on (e.g. `refs/heads/flank-okf`); null on a failed attempt. */
+  readonly branchRef: string | null;
+  readonly pullRequestUrl: string | null;
+  /**
+   * path → sha256 content hash of the bundle actually delivered — the baseline the next run diffs
+   * against to decide what changed. Empty for a failed attempt (nothing shipped).
+   */
+  readonly manifest: Readonly<Record<string, string>>;
+  readonly filesAdded: number;
+  readonly filesModified: number;
+  readonly filesRemoved: number;
+  readonly error: string | null;
+  readonly createdAt: Date;
+}
+
 /** Boundary validation for a channel config arriving from settings/UI — never trust raw input. */
 export const AlertChannelConfigSchema = z
   .object({

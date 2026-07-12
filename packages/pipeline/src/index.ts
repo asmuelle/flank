@@ -15,5 +15,8 @@ export * from './alerts';
 export * from './alert-render';
 export * from './notifier-impls';
 export * from './delivery';
+export * from './github-publisher';
+export * from './okf-config';
+export * from './okf-delivery';
 export * from './fixture-run';
 export * from './fixture-files';

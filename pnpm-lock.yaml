@@ -63,6 +63,9 @@ importers:
       '@flank/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@flank/okf-export':
+        specifier: workspace:*
+        version: link:../../packages/okf-export
       '@flank/pipeline':
         specifier: workspace:*
         version: link:../../packages/pipeline
@@ -145,6 +148,37 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(@vitest/coverage-v8@4.1.10)(vite@7.3.5(@types/node@26.1.1)(tsx@4.23.0)(yaml@2.9.0))
 
+  packages/okf:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(vite@7.3.5(@types/node@26.0.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/okf-export:
+    dependencies:
+      '@flank/core':
+        specifier: workspace:*
+        version: link:../core
+      '@okf/core':
+        specifier: workspace:*
+        version: link:../okf
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(vite@7.3.5(@types/node@26.0.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/pipeline:
     dependencies:
       '@anthropic-ai/sdk':
@@ -153,6 +187,12 @@ importers:
       '@flank/core':
         specifier: workspace:*
         version: link:../core
+      '@flank/okf-export':
+        specifier: workspace:*
+        version: link:../okf-export
+      '@okf/core':
+        specifier: workspace:*
+        version: link:../okf
       cron-parser:
         specifier: ^5.6.1
         version: 5.6.1
