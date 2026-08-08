@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node 24
         # Node 24 aligns the runtime with the bumped @types/node (Node-26 line) from the major-deps
         # migration, so the types no longer describe APIs ahead of the runtime.
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
