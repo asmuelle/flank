@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@flank/core": "workspace:*",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.3",
     "postgres": "^3.4.5",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@flank/pipeline": "workspace:*",
